@@ -1,0 +1,13 @@
+/target
+/pkg
+
+.zed
+.vscode
+.vs
+.idea
+
+.codex
+
+.exe
+
+DS_Store
