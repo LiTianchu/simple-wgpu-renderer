@@ -1,7 +1,14 @@
+use core::ops::Range;
 use std::path::Path;
+use std::sync::mpsc;
+
+const BYTES_PER_PIXEL: usize = 4;
 
 pub async fn render_png(
-    export_path: impl AsRef<Path>,
+    export_dir: impl AsRef<Path>,
+    export_file_name: impl Into<String>,
+    export_file_ext: impl Into<String>,
+    vertices: Range<u32>,
     vert_shader_path: impl AsRef<Path>,
     frag_shader_path: impl AsRef<Path>,
     output_width: u32,
@@ -133,14 +140,151 @@ pub async fn render_png(
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: texture_format,
-        usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        usage: wgpu::TextureUsages::COPY_DST
+            | wgpu::TextureUsages::RENDER_ATTACHMENT
+            | wgpu::TextureUsages::COPY_SRC,
         view_formats: &[],
     };
 
-    let output_texture = device.create_texture(&output_texture_descriptor);
+    let output_texture: wgpu::Texture = device.create_texture(&output_texture_descriptor);
 
     let texture_view_descriptor = wgpu::TextureViewDescriptor::default();
-    let output_texture_view = output_texture.create_view(&texture_view_descriptor);
+    let output_texture_view: wgpu::TextureView =
+        output_texture.create_view(&texture_view_descriptor);
+
+    let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
+    let alignment: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+
+    let padded_byte_per_row: u32 = unpadded_bytes_per_row.div_ceil(alignment) * alignment;
+    let output_buffer_size: u64 =
+        padded_byte_per_row as wgpu::BufferAddress * output_height as wgpu::BufferAddress;
+
+    let buffer_descriptor = wgpu::BufferDescriptor {
+        label: Some("Image Export Output Buffer"),
+        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+        size: output_buffer_size,
+    };
+
+    let output_buffer: wgpu::Buffer = device.create_buffer(&buffer_descriptor);
+
+    let command_encoder_descriptor = wgpu::CommandEncoderDescriptor {
+        label: Some("Command Encoder Descriptor"),
+    };
+
+    let mut command_encoder: wgpu::CommandEncoder =
+        device.create_command_encoder(&command_encoder_descriptor);
+
+    let render_pass_color_attachments: [Option<wgpu::RenderPassColorAttachment>; 1] =
+        [Some(wgpu::RenderPassColorAttachment {
+            view: &output_texture_view,
+            depth_slice: None,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(wgpu::Color {
+                    r: 0.1,
+                    g: 0.2,
+                    b: 0.3,
+                    a: 1.0,
+                }),
+                store: wgpu::StoreOp::Store,
+            },
+        })];
+
+    {
+        let render_pass_descriptor = wgpu::RenderPassDescriptor {
+            label: Some("Image Export Render Pass"),
+            color_attachments: &render_pass_color_attachments,
+            depth_stencil_attachment: None,
+            occlusion_query_set: None,
+            timestamp_writes: None,
+            multiview_mask: None,
+        };
+
+        let mut render_pass: wgpu::RenderPass =
+            command_encoder.begin_render_pass(&render_pass_descriptor);
+        render_pass.set_pipeline(&pipeline);
+        render_pass.draw(vertices, 0..1)
+    }
+
+    command_encoder.copy_texture_to_buffer(
+        wgpu::TexelCopyTextureInfo {
+            texture: &output_texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        wgpu::TexelCopyBufferInfo {
+            buffer: &output_buffer,
+            layout: wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(padded_byte_per_row),
+                rows_per_image: Some(output_height),
+            },
+        },
+        wgpu::Extent3d {
+            width: output_width,
+            height: output_height,
+            depth_or_array_layers: 1,
+        },
+    );
+
+    let submission_index = queue.submit([command_encoder.finish()]);
+
+    let buffer_slice = output_buffer.slice(..);
+
+    let (sender, receiver) = mpsc::channel();
+
+    buffer_slice.map_async(
+        wgpu::MapMode::Read,
+        move |result: Result<(), wgpu::BufferAsyncError>| {
+            let _ = sender.send(result);
+        },
+    );
+
+    device.poll(wgpu::PollType::Wait {
+        submission_index: Some(submission_index),
+        timeout: None,
+    })?;
+
+    let _ = receiver
+        .recv()
+        .map_err(|_| anyhow::anyhow!("Buffer mapping callback was dropped"))?;
+
+    let mapped_data: wgpu::BufferView = buffer_slice.get_mapped_range()?;
+
+    // use unpadded bytes for output to trim the gpu padded bytes
+    let mut output_img_pixels: Vec<u8> =
+        vec![0_u8; (unpadded_bytes_per_row * output_height) as usize];
+
+    // copy row-by-row to the output img pixel array
+    for (source_row, dest_row) in mapped_data
+        .chunks_exact(padded_byte_per_row as usize)
+        .zip(output_img_pixels.chunks_exact_mut(unpadded_bytes_per_row as usize))
+    {
+        dest_row.copy_from_slice(&source_row[0..unpadded_bytes_per_row as usize]);
+    }
+
+    // clean up
+    drop(mapped_data);
+    output_buffer.unmap();
+
+    let export_location = format!(
+        "{}/{}.{}",
+        export_dir.as_ref().to_string_lossy(),
+        export_file_name.into(),
+        export_file_ext.into()
+    );
+
+    println!("Exported render result: {}", export_location);
+
+    image::save_buffer(
+        export_location,
+        &output_img_pixels,
+        output_width,
+        output_height,
+        image::ColorType::Rgba8,
+    )?;
 
     Ok(())
 }
