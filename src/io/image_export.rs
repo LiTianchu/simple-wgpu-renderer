@@ -85,9 +85,23 @@ pub async fn render_image(
             z: 0.0,
         },
         30.0,
-        2.0,
+        1.0,
         1.0,
         1000.0,
+    );
+
+    let light_uniform_buffer = buffer_factory::create_light_uniform_buffer(
+        &device,
+        Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: -1.0,
+        },
+    );
+
+    let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
+        &device,
+        [149, 191, 201, 255], // red color
     );
 
     let transform_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
@@ -109,7 +123,7 @@ pub async fn render_image(
         entries: &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0, // light
-                visibility: wgpu::ShaderStages::VERTEX,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -119,7 +133,7 @@ pub async fn render_image(
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1, // material
-                visibility: wgpu::ShaderStages::VERTEX,
+                visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
@@ -145,12 +159,18 @@ pub async fn render_image(
     });
 
     let mat_light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Image Export Transform Bind Group"),
-        layout: &transform_bind_grp_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: mvp_uniform_buffer.as_entire_binding(),
-        }],
+        label: Some("Image Export Material-Light Bind Group"),
+        layout: &mat_light_bind_grp_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: light_uniform_buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: material_uniform_buffer.as_entire_binding(),
+            },
+        ],
     });
 
     let texture_format = wgpu::TextureFormat::Rgba8UnormSrgb;
@@ -306,6 +326,8 @@ pub async fn render_image(
         let mut render_pass: wgpu::RenderPass =
             command_encoder.begin_render_pass(&render_pass_descriptor);
         render_pass.set_pipeline(&pipeline);
+        render_pass.set_bind_group(0, &transform_bind_group, &[]);
+        render_pass.set_bind_group(1, &mat_light_bind_group, &[]);
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.draw(0..vertices.len() as u32, 0..1)
     }

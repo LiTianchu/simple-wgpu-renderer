@@ -67,7 +67,7 @@ pub struct LightUniform {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MaterialUniform {
-    pub base_color: [f32; 4],
+    pub base_color: u32, // RGBA color packed into a u32 bytes
 }
 
 #[derive(Debug, Clone)]

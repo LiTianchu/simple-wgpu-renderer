@@ -34,7 +34,7 @@ pub fn create_mvp_uniform_buffer(
 
 pub fn create_light_uniform_buffer(device: &wgpu::Device, light_direction: Vec3) -> wgpu::Buffer {
     let light_uniform = LightUniform {
-        light_direction: light_direction.to_array(),
+        light_direction: light_direction.normalize().to_array(),
         _padding: 0.0,
     };
 
@@ -47,8 +47,14 @@ pub fn create_light_uniform_buffer(device: &wgpu::Device, light_direction: Vec3)
     device.create_buffer_init(&descriptor)
 }
 
-pub fn create_material_uniform_buffer(device: &wgpu::Device, base_color: [f32; 4]) -> wgpu::Buffer {
-    let material_uniform = MaterialUniform { base_color };
+pub fn create_material_uniform_buffer(
+    device: &wgpu::Device,
+    base_color_rgba: [u8; 4],
+) -> wgpu::Buffer {
+    let material_uniform = MaterialUniform {
+        base_color: u32::from_be_bytes(base_color_rgba),
+    };
+
     let descriptor = wgpu::util::BufferInitDescriptor {
         label: Some("Material Uniform Buffer"),
         contents: bytemuck::bytes_of(&material_uniform),
