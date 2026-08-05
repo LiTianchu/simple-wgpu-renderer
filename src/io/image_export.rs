@@ -31,6 +31,7 @@ pub async fn render_png(
 
     let request_adator_options = wgpu::RequestAdapterOptions {
         power_preference: Default::default(),
+        // None for off-screen rendering, need to pass in &surface if render on screen
         compatible_surface: None,
         force_fallback_adapter: false,
         apply_limit_buckets: true,
@@ -232,7 +233,7 @@ pub async fn render_png(
     let submission_index = queue.submit([command_encoder.finish()]);
 
     let buffer_slice = output_buffer.slice(..);
-
+    // use sender receiver pattern to receive the result
     let (sender, receiver) = mpsc::channel();
 
     buffer_slice.map_async(
@@ -242,11 +243,14 @@ pub async fn render_png(
         },
     );
 
+    // waits for GPU work and invokes pending mapping callbacks
+    // need to poll as CPU need to wait for the async mapping result
     device.poll(wgpu::PollType::Wait {
         submission_index: Some(submission_index),
         timeout: None,
     })?;
 
+    //receive the result and throw error if needed
     let _ = receiver
         .recv()
         .map_err(|_| anyhow::anyhow!("Buffer mapping callback was dropped"))?;
