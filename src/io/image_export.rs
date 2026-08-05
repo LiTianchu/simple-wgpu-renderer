@@ -1,4 +1,6 @@
 use crate::ds::model::Vertex;
+use crate::utils::buffer_factory;
+use glam::Vec3;
 use std::path::Path;
 use std::sync::mpsc;
 
@@ -65,11 +67,100 @@ pub async fn render_image(
 
     let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
 
+    let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
+        &device,
+        Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 10.0,
+        },
+        Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        Vec3 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        },
+        30.0,
+        2.0,
+        1.0,
+        1000.0,
+    );
+
+    let transform_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Image Export Transform Bind Group Layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0, // transforms
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }],
+    };
+
+    let mat_light_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Image Export Material-Light Bind Group Layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0, // light
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1, // material
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    };
+
+    let transform_bind_grp_layout =
+        device.create_bind_group_layout(&transform_bind_grp_layout_descriptor);
+    let mat_light_bind_grp_layout =
+        device.create_bind_group_layout(&mat_light_bind_grp_layout_descriptor);
+
+    let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Image Export Transform Bind Group"),
+        layout: &transform_bind_grp_layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: mvp_uniform_buffer.as_entire_binding(),
+        }],
+    });
+
+    let mat_light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Image Export Transform Bind Group"),
+        layout: &transform_bind_grp_layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: mvp_uniform_buffer.as_entire_binding(),
+        }],
+    });
+
     let texture_format = wgpu::TextureFormat::Rgba8UnormSrgb;
 
     let pipeline_layout_descriptor = wgpu::PipelineLayoutDescriptor {
         label: Some("Image Export Pipeline Layout"),
-        bind_group_layouts: &[],
+        bind_group_layouts: &[
+            Some(&transform_bind_grp_layout),
+            Some(&mat_light_bind_grp_layout),
+        ],
         immediate_size: 0,
     };
 
