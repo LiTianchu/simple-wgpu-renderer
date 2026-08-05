@@ -1,14 +1,16 @@
-use core::ops::Range;
+use crate::ds::model::Vertex;
 use std::path::Path;
 use std::sync::mpsc;
 
+use wgpu::util::DeviceExt;
+
 const BYTES_PER_PIXEL: usize = 4;
 
-pub async fn render_png(
+pub async fn render_image(
     export_dir: impl AsRef<Path>,
     export_file_name: impl Into<String>,
     export_file_ext: impl Into<String>,
-    vertices: Range<u32>,
+    vertices: &[Vertex],
     vert_shader_path: impl AsRef<Path>,
     frag_shader_path: impl AsRef<Path>,
     output_width: u32,
@@ -55,6 +57,14 @@ pub async fn render_png(
 
     let (device, queue) = wgpu_adapter.request_device(&device_descriptor).await?;
 
+    let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
+        label: Some("Image Export Vertex Buffer Descriptor"),
+        contents: bytemuck::cast_slice(vertices),
+        usage: wgpu::BufferUsages::VERTEX,
+    };
+
+    let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
+
     let texture_format = wgpu::TextureFormat::Rgba8UnormSrgb;
 
     let pipeline_layout_descriptor = wgpu::PipelineLayoutDescriptor {
@@ -81,7 +91,7 @@ pub async fn render_png(
         module: &vert_shader_module,
         entry_point: Some("vs_main"),
         compilation_options: Default::default(),
-        buffers: &[],
+        buffers: &[Some(Vertex::BUFFER_LAYOUT)],
     };
 
     let frag_shader_path_ref = frag_shader_path.as_ref();
@@ -205,7 +215,8 @@ pub async fn render_png(
         let mut render_pass: wgpu::RenderPass =
             command_encoder.begin_render_pass(&render_pass_descriptor);
         render_pass.set_pipeline(&pipeline);
-        render_pass.draw(vertices, 0..1)
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.draw(0..vertices.len() as u32, 0..1)
     }
 
     command_encoder.copy_texture_to_buffer(
