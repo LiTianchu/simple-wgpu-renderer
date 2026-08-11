@@ -10,23 +10,26 @@ pub fn render_to_output_buffer(
     vertex_buffer: &wgpu::Buffer,
     index_buffer: &wgpu::Buffer,
     draw_indices: std::ops::Range<u32>,
+    clear_color: wgpu::Color,
 
     // Output Description
-    output_texture: &wgpu::Texture,
-    depth_texture: &wgpu::Texture,
-    output_width: u32,
-    output_height: u32,
-    padded_byte_per_row: u32,
+    color_output_texture: &wgpu::Texture,
+    depth_output_texture: &wgpu::Texture,
+    copy_width: u32,
+    copy_height: u32,
+    receiver_buffer_bytes_per_row: u32,
+    receiver_buffer_row_num: u32,
 
     // Receiver buffer
-    receiver_output_buffer: &wgpu::Buffer,
+    receiver_buffer: &wgpu::Buffer,
 ) -> wgpu::SubmissionIndex {
-    let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let depth_output_texture_view =
+        depth_output_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-    let output_texture_view_descriptor = wgpu::TextureViewDescriptor::default();
+    let color_output_texture_view_descriptor = wgpu::TextureViewDescriptor::default();
 
-    let output_texture_view: wgpu::TextureView =
-        output_texture.create_view(&output_texture_view_descriptor);
+    let color_output_texture_view: wgpu::TextureView =
+        color_output_texture.create_view(&color_output_texture_view_descriptor);
 
     let command_encoder_descriptor = wgpu::CommandEncoderDescriptor {
         label: Some("Command Encoder Descriptor"),
@@ -37,16 +40,11 @@ pub fn render_to_output_buffer(
 
     let render_pass_color_attachments: [Option<wgpu::RenderPassColorAttachment>; 1] =
         [Some(wgpu::RenderPassColorAttachment {
-            view: &output_texture_view,
+            view: &color_output_texture_view,
             depth_slice: None,
             resolve_target: None,
             ops: wgpu::Operations {
-                load: wgpu::LoadOp::Clear(wgpu::Color {
-                    r: 0.1,
-                    g: 0.2,
-                    b: 0.3,
-                    a: 1.0,
-                }),
+                load: wgpu::LoadOp::Clear(clear_color),
                 store: wgpu::StoreOp::Store,
             },
         })];
@@ -55,7 +53,7 @@ pub fn render_to_output_buffer(
         label: Some("Image Export Render Pass"),
         color_attachments: &render_pass_color_attachments,
         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-            view: &depth_texture_view,
+            view: &depth_output_texture_view,
             depth_ops: Some(wgpu::Operations {
                 load: wgpu::LoadOp::Clear(1.0),
                 store: wgpu::StoreOp::Discard,
@@ -80,22 +78,22 @@ pub fn render_to_output_buffer(
 
     command_encoder.copy_texture_to_buffer(
         wgpu::TexelCopyTextureInfo {
-            texture: &output_texture,
+            texture: &color_output_texture,
             mip_level: 0,
             origin: wgpu::Origin3d::ZERO,
             aspect: wgpu::TextureAspect::All,
         },
         wgpu::TexelCopyBufferInfo {
-            buffer: &receiver_output_buffer,
+            buffer: &receiver_buffer,
             layout: wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(padded_byte_per_row),
-                rows_per_image: Some(output_height),
+                bytes_per_row: Some(receiver_buffer_bytes_per_row),
+                rows_per_image: Some(receiver_buffer_row_num),
             },
         },
         wgpu::Extent3d {
-            width: output_width,
-            height: output_height,
+            width: copy_width,
+            height: copy_height,
             depth_or_array_layers: 1,
         },
     );

@@ -1,10 +1,8 @@
 use crate::ds::model::{Face, Vertex};
 use crate::render::render_pass;
-use crate::utils::copying::buffer_slice_to_byte_array;
 use crate::utils::{buffer_factory, copying, render_pipeline_factory};
 use glam::Vec3;
 use std::path::Path;
-use std::sync::mpsc;
 use wgpu::util::DeviceExt;
 
 const BYTES_PER_PIXEL: usize = 4;
@@ -175,13 +173,6 @@ pub async fn render_image(
         [149, 191, 201, 255], // red color
     );
 
-    let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
-    let alignment: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-
-    let padded_byte_per_row: u32 = unpadded_bytes_per_row.div_ceil(alignment) * alignment;
-    let output_buffer_size: u64 =
-        padded_byte_per_row as wgpu::BufferAddress * output_height as wgpu::BufferAddress;
-
     let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Image Export Transform Bind Group"),
         layout: &transform_bind_grp_layout,
@@ -206,16 +197,23 @@ pub async fn render_image(
         ],
     });
 
-    let buffer_descriptor = wgpu::BufferDescriptor {
+    let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
+    let alignment: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+
+    let padded_byte_per_row: u32 = unpadded_bytes_per_row.div_ceil(alignment) * alignment;
+    let output_buffer_size: u64 =
+        padded_byte_per_row as wgpu::BufferAddress * output_height as wgpu::BufferAddress;
+
+    let output_buffer_descriptor = wgpu::BufferDescriptor {
         label: Some("Image Export Output Buffer"),
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
         size: output_buffer_size,
     };
 
-    let output_buffer: wgpu::Buffer = device.create_buffer(&buffer_descriptor);
+    let output_buffer: wgpu::Buffer = device.create_buffer(&output_buffer_descriptor);
 
-    let output_texture_descriptor = wgpu::TextureDescriptor {
+    let color_output_texture_descriptor = wgpu::TextureDescriptor {
         label: Some("Image Export Output Texture"),
         size: wgpu::Extent3d {
             width: output_width,
@@ -232,9 +230,10 @@ pub async fn render_image(
         view_formats: &[],
     };
 
-    let output_texture: wgpu::Texture = device.create_texture(&output_texture_descriptor);
+    let color_output_texture: wgpu::Texture =
+        device.create_texture(&color_output_texture_descriptor);
 
-    let depth_texture_descriptor = wgpu::TextureDescriptor {
+    let color_depth_texture_descriptor = wgpu::TextureDescriptor {
         label: Some("Image Export Depth Texture"),
         size: wgpu::Extent3d {
             width: output_width,
@@ -249,7 +248,7 @@ pub async fn render_image(
         view_formats: &[],
     };
 
-    let depth_texture = device.create_texture(&depth_texture_descriptor);
+    let depth_output_texture = device.create_texture(&color_depth_texture_descriptor);
 
     let submission_index = render_pass::render_to_output_buffer(
         &device,
@@ -260,11 +259,18 @@ pub async fn render_image(
         &vertex_buffer,
         &index_buffer,
         0..(faces.len() * 3) as u32,
-        &output_texture,
-        &depth_texture,
+        wgpu::Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        },
+        &color_output_texture,
+        &depth_output_texture,
         output_width,
         output_height,
         padded_byte_per_row,
+        output_height,
         &output_buffer,
     );
 
