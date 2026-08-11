@@ -2,8 +2,6 @@ use crate::ds::model::Vertex;
 use std::path::Path;
 
 pub async fn create_render_pipeline_raster(
-    wgpu_instance: &wgpu::Instance,
-    wgpu_adaptor: &wgpu::Adapter,
     device: &wgpu::Device,
     texture_format: &wgpu::TextureFormat,
     bind_group_layouts: &[Option<&wgpu::BindGroupLayout>],
