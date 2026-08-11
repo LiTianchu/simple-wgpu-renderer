@@ -1,10 +1,10 @@
 use crate::ds::model::{Face, Vertex};
 use crate::utils::buffer_factory;
+use crate::utils::render_pipeline_factory;
 use glam::Vec3;
 use std::path::Path;
 use std::sync::mpsc;
-
-use wgpu::util::{DeviceExt, RenderEncoder};
+use wgpu::util::DeviceExt;
 
 const BYTES_PER_PIXEL: usize = 4;
 
@@ -60,59 +60,7 @@ pub async fn render_image(
 
     let (device, queue) = wgpu_adapter.request_device(&device_descriptor).await?;
 
-    let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
-        label: Some("Image Export Vertex Buffer"),
-        contents: bytemuck::cast_slice(vertices),
-        usage: wgpu::BufferUsages::VERTEX,
-    };
-
-    let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
-
-    let face_slice: &[u8] = bytemuck::cast_slice(faces);
-    let index_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
-        label: Some("Image Export Index Buffer"),
-        contents: face_slice,
-        usage: wgpu::BufferUsages::INDEX,
-    };
-
-    let index_buffer = device.create_buffer_init(&index_buffer_init_descriptor);
-
-    let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
-        &device,
-        Vec3 {
-            x: 5.0,
-            y: 5.0,
-            z: 5.0,
-        },
-        Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        },
-        Vec3 {
-            x: 0.0,
-            y: 1.0,
-            z: 0.0,
-        },
-        30.0,
-        1.0,
-        1.0,
-        1000.0,
-    );
-
-    let light_uniform_buffer = buffer_factory::create_light_uniform_buffer(
-        &device,
-        Vec3 {
-            x: -1.23,
-            y: -1.5,
-            z: -1.0,
-        },
-    );
-
-    let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
-        &device,
-        [149, 191, 201, 255], // red color
-    );
+    let texture_format = wgpu::TextureFormat::Rgba8UnormSrgb;
 
     let transform_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
         label: Some("Image Export Transform Bind Group Layout"),
@@ -159,132 +107,37 @@ pub async fn render_image(
     let mat_light_bind_grp_layout =
         device.create_bind_group_layout(&mat_light_bind_grp_layout_descriptor);
 
-    let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Image Export Transform Bind Group"),
-        layout: &transform_bind_grp_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: mvp_uniform_buffer.as_entire_binding(),
-        }],
-    });
-
-    let mat_light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Image Export Material-Light Bind Group"),
-        layout: &mat_light_bind_grp_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_uniform_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: material_uniform_buffer.as_entire_binding(),
-            },
-        ],
-    });
-
-    let texture_format = wgpu::TextureFormat::Rgba8UnormSrgb;
-
-    let pipeline_layout_descriptor = wgpu::PipelineLayoutDescriptor {
-        label: Some("Image Export Pipeline Layout"),
-        bind_group_layouts: &[
+    let pipeline = render_pipeline_factory::create_render_pipeline_raster(
+        &wgpu_instance,
+        &wgpu_adapter,
+        &device,
+        &texture_format,
+        &[
             Some(&transform_bind_grp_layout),
             Some(&mat_light_bind_grp_layout),
         ],
-        immediate_size: 0,
+        vert_shader_path,
+        frag_shader_path,
+    )
+    .await
+    .expect("Failed to create rendering pipeline for image export.");
+
+    let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
+        label: Some("Image Export Vertex Buffer"),
+        contents: bytemuck::cast_slice(vertices),
+        usage: wgpu::BufferUsages::VERTEX,
     };
 
-    let pipeline_layout = device.create_pipeline_layout(&pipeline_layout_descriptor);
+    let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
 
-    let vertex_shader_path_ref = vert_shader_path.as_ref();
-    let vertex_shader_source: String =
-        std::fs::read_to_string(vertex_shader_path_ref).expect(&format!(
-            "Vertex shader path {:?} is invalid!",
-            vertex_shader_path_ref
-        ));
-
-    let vert_shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Image Export Vertex Shader"),
-        source: wgpu::ShaderSource::Wgsl(vertex_shader_source.into()),
-    });
-
-    let pipeline_vert_state = wgpu::VertexState {
-        module: &vert_shader_module,
-        entry_point: Some("vs_main"),
-        compilation_options: Default::default(),
-        buffers: &[Some(Vertex::BUFFER_LAYOUT)],
+    let face_slice: &[u8] = bytemuck::cast_slice(faces);
+    let index_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
+        label: Some("Image Export Index Buffer"),
+        contents: face_slice,
+        usage: wgpu::BufferUsages::INDEX,
     };
 
-    let frag_shader_path_ref = frag_shader_path.as_ref();
-    let fragment_shader_source = std::fs::read_to_string(frag_shader_path_ref).expect(&format!(
-        "Fragment shader path {:?} is invalid!",
-        frag_shader_path_ref
-    ));
-
-    let frag_shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Image Export Fragment Shader"),
-        source: wgpu::ShaderSource::Wgsl(fragment_shader_source.into()),
-    });
-
-    let pipeline_frag_state = wgpu::FragmentState {
-        module: &frag_shader_module,
-        entry_point: Some("fs_main"),
-        compilation_options: Default::default(),
-        targets: &[Some(wgpu::ColorTargetState {
-            format: texture_format,
-            blend: Some(wgpu::BlendState::REPLACE),
-            write_mask: wgpu::ColorWrites::ALL,
-        })],
-    };
-
-    let pipeline_primitive_state = wgpu::PrimitiveState {
-        topology: wgpu::PrimitiveTopology::TriangleList,
-        strip_index_format: None,
-        front_face: wgpu::FrontFace::Ccw,
-        cull_mode: Some(wgpu::Face::Back),
-        polygon_mode: wgpu::PolygonMode::Fill,
-        unclipped_depth: false,
-        conservative: false,
-    };
-
-    let depth_texture_descriptor = wgpu::TextureDescriptor {
-        label: Some("Image Export Depth Texture"),
-        size: wgpu::Extent3d {
-            width: output_width,
-            height: output_height,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Depth32Float,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-        view_formats: &[],
-    };
-
-    let depth_texture = device.create_texture(&depth_texture_descriptor);
-
-    let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-    let pipeline_descriptor = wgpu::RenderPipelineDescriptor {
-        label: Some("Image Export Render Pipeline"),
-        layout: Some(&pipeline_layout),
-        vertex: pipeline_vert_state,
-        fragment: Some(pipeline_frag_state),
-        primitive: pipeline_primitive_state,
-        depth_stencil: Some(wgpu::DepthStencilState {
-            format: wgpu::TextureFormat::Depth32Float,
-            depth_write_enabled: Some(true),
-            depth_compare: Some(wgpu::CompareFunction::Less),
-            stencil: wgpu::StencilState::default(),
-            bias: wgpu::DepthBiasState::default(),
-        }),
-        multisample: wgpu::MultisampleState::default(),
-        multiview_mask: None,
-        cache: None,
-    };
-
-    let pipeline = device.create_render_pipeline(&pipeline_descriptor);
+    let index_buffer = device.create_buffer_init(&index_buffer_init_descriptor);
 
     let output_texture_descriptor = wgpu::TextureDescriptor {
         label: Some("Image Export Output Texture"),
@@ -308,6 +161,62 @@ pub async fn render_image(
     let texture_view_descriptor = wgpu::TextureViewDescriptor::default();
     let output_texture_view: wgpu::TextureView =
         output_texture.create_view(&texture_view_descriptor);
+
+    let depth_texture_descriptor = wgpu::TextureDescriptor {
+        label: Some("Image Export Depth Texture"),
+        size: wgpu::Extent3d {
+            width: output_width,
+            height: output_height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    };
+
+    let depth_texture = device.create_texture(&depth_texture_descriptor);
+
+    let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
+        &device,
+        Vec3 {
+            x: 5.0,
+            y: 5.0,
+            z: 5.0,
+        },
+        Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        Vec3 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        },
+        30.0,
+        1.0,
+        1.0,
+        1000.0,
+    );
+
+    let light_uniform_buffer = buffer_factory::create_light_uniform_buffer(
+        &device,
+        Vec3 {
+            x: -1.23,
+            y: -1.5,
+            z: -1.0,
+        },
+    );
+
+    let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
+        &device,
+        [149, 191, 201, 255], // red color
+    );
 
     let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
     let alignment: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
@@ -364,6 +273,30 @@ pub async fn render_image(
             timestamp_writes: None,
             multiview_mask: None,
         };
+
+        let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Image Export Transform Bind Group"),
+            layout: &transform_bind_grp_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: mvp_uniform_buffer.as_entire_binding(),
+            }],
+        });
+
+        let mat_light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Image Export Material-Light Bind Group"),
+            layout: &mat_light_bind_grp_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: light_uniform_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: material_uniform_buffer.as_entire_binding(),
+                },
+            ],
+        });
 
         let mut render_pass: wgpu::RenderPass =
             command_encoder.begin_render_pass(&render_pass_descriptor);
