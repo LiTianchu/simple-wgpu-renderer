@@ -1,10 +1,10 @@
-use crate::ds::model::Vertex;
+use crate::ds::model::{Face, Vertex};
 use crate::utils::buffer_factory;
 use glam::Vec3;
 use std::path::Path;
 use std::sync::mpsc;
 
-use wgpu::util::DeviceExt;
+use wgpu::util::{DeviceExt, RenderEncoder};
 
 const BYTES_PER_PIXEL: usize = 4;
 
@@ -13,6 +13,7 @@ pub async fn render_image(
     export_file_name: impl Into<String>,
     export_file_ext: impl Into<String>,
     vertices: &[Vertex],
+    faces: &[Face],
     vert_shader_path: impl AsRef<Path>,
     frag_shader_path: impl AsRef<Path>,
     output_width: u32,
@@ -60,12 +61,21 @@ pub async fn render_image(
     let (device, queue) = wgpu_adapter.request_device(&device_descriptor).await?;
 
     let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
-        label: Some("Image Export Vertex Buffer Descriptor"),
+        label: Some("Image Export Vertex Buffer"),
         contents: bytemuck::cast_slice(vertices),
         usage: wgpu::BufferUsages::VERTEX,
     };
 
     let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
+
+    let face_slice: &[u8] = bytemuck::cast_slice(faces);
+    let index_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
+        label: Some("Image Export Index Buffer"),
+        contents: face_slice,
+        usage: wgpu::BufferUsages::INDEX,
+    };
+
+    let index_buffer = device.create_buffer_init(&index_buffer_init_descriptor);
 
     let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
         &device,
@@ -329,7 +339,8 @@ pub async fn render_image(
         render_pass.set_bind_group(0, &transform_bind_group, &[]);
         render_pass.set_bind_group(1, &mat_light_bind_group, &[]);
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        render_pass.draw(0..vertices.len() as u32, 0..1)
+        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..(faces.len() * 3) as u32, 0, 0..1);
     }
 
     command_encoder.copy_texture_to_buffer(

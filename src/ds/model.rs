@@ -25,19 +25,43 @@ impl Vertex {
     };
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Face {
+    index_1: u32,
+    index_2: u32,
+    index_3: u32,
+}
+
+impl Face {
+    pub fn new(index_1: u32, index_2: u32, index_3: u32) -> Self {
+        Self {
+            index_1,
+            index_2,
+            index_3,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Mesh {
     positions: Vec<Vertex>,
+    faces: Vec<Face>,
 }
 
 impl Mesh {
     pub fn new() -> Self {
         Self {
             positions: Vec::new(),
+            faces: Vec::new(),
         }
     }
     pub fn positions(&self) -> &[Vertex] {
         &self.positions
+    }
+
+    pub fn faces(&self) -> &[Face] {
+        &self.faces
     }
 
     pub fn push_vert(&mut self, x: f32, y: f32, z: f32) {
@@ -46,6 +70,14 @@ impl Mesh {
             pos_y: y,
             pos_z: z,
         });
+    }
+
+    pub fn push_face(&mut self, index_1: u32, index_2: u32, index_3: u32) {
+        self.faces.push(Face {
+            index_1,
+            index_2,
+            index_3,
+        })
     }
 }
 

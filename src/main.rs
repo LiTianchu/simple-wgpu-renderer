@@ -1,5 +1,5 @@
 use std::env;
-use wgpu_tutorial::ds::model::Model;
+use wgpu_tutorial::ds::model::{Mesh, Model};
 use wgpu_tutorial::io::image_export;
 use wgpu_tutorial::runner::run;
 #[cfg(target_arch = "wasm32")]
@@ -14,8 +14,7 @@ const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
 fn load_model(path_str: impl Into<String>) -> Option<Model> {
     let mut loaded_model = Model::new();
 
-    let mut obj_load_options = tobj::LoadOptions::default();
-    obj_load_options.triangulate = true;
+    let obj_load_options = tobj::LoadOptions::default();
 
     let (models, materials) = tobj::load_obj(&path_str.into(), &obj_load_options).ok()?;
 
@@ -36,18 +35,31 @@ fn load_model(path_str: impl Into<String>) -> Option<Model> {
         println!("model[{}].name             = \'{}\'", i, m.name);
         println!("model[{}].mesh.material_id = {:?}", i, mesh.material_id);
 
-        println!(
-            "model[{}].face_count       = {}",
-            i,
-            mesh.face_arities.len()
-        );
+        let num_indices = mesh.indices.len();
+        let num_faces = mesh.indices.len() / 3;
+
+        println!("Num indices: {}", num_indices);
+        println!("Num faces: {}", num_faces);
+
+        if num_faces == 0 {
+            eprintln!("Failed to parse model data. Face count is 0!");
+        }
 
         let mut next_face = 0;
-        for face in 0..mesh.face_arities.len() {
-            let end = next_face + mesh.face_arities[face] as usize;
+        let loaded_model_mesh: &mut Mesh = loaded_model.mesh_mut();
+
+        for face in 0..num_faces {
+            if mesh.face_arities.len() > 0 && mesh.face_arities[face] as usize != 3 {
+                println!("Failed to parse model data. The model mesh is not a triangle mesh!");
+                return None;
+            }
+
+            let end = next_face + 3;
 
             let face_indices = &mesh.indices[next_face..end];
             println!(" face[{}].indices          = {:?}", face, face_indices);
+
+            loaded_model_mesh.push_face(face_indices[0], face_indices[1], face_indices[2]);
 
             if !mesh.texcoord_indices.is_empty() {
                 let texcoord_face_indices = &mesh.texcoord_indices[next_face..end];
@@ -67,11 +79,11 @@ fn load_model(path_str: impl Into<String>) -> Option<Model> {
             next_face = end;
         }
 
-        println!(
-            "model[{}].positions        = {}",
-            i,
-            mesh.positions.len() / 3
-        );
+        // println!(
+        //     "model[{}].positions        = {}",
+        //     i,
+        //     mesh.positions.len() / 3
+        // );
         assert!(mesh.positions.len() % 3 == 0);
 
         for vtx in 0..mesh.positions.len() / 3 {
@@ -79,12 +91,12 @@ fn load_model(path_str: impl Into<String>) -> Option<Model> {
             let vert_y = mesh.positions[3 * vtx + 1];
             let vert_z = mesh.positions[3 * vtx + 2];
 
-            loaded_model.mesh_mut().push_vert(vert_x, vert_y, vert_z);
+            loaded_model_mesh.push_vert(vert_x, vert_y, vert_z);
 
-            println!(
-                "              position[{}] = ({}, {}, {})",
-                vtx, vert_x, vert_y, vert_z
-            );
+            // println!(
+            //     "              position[{}] = ({}, {}, {})",
+            //     vtx, vert_x, vert_y, vert_z
+            // );
         }
     }
 
@@ -199,11 +211,17 @@ fn main() -> anyhow::Result<()> {
             ));
         }
 
+        println!(
+            "Num Vertices: {}, Num Faces: {}",
+            loaded_model.mesh().positions().len(),
+            loaded_model.mesh().faces().len()
+        );
         pollster::block_on(image_export::render_image(
             image_export_dir,
             IMAGE_FILE_NAME,
             IMAGE_FILE_FORMAT,
             loaded_model.mesh().positions(),
+            loaded_model.mesh().faces(),
             DEMO_VERT_SHADER_PATH,
             DEMO_FRAG_SHADER_PATH,
             500,
