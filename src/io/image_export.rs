@@ -233,7 +233,7 @@ pub async fn render_image(
     let color_output_texture: wgpu::Texture =
         device.create_texture(&color_output_texture_descriptor);
 
-    let color_depth_texture_descriptor = wgpu::TextureDescriptor {
+    let depth_output_texture_descriptor = wgpu::TextureDescriptor {
         label: Some("Image Export Depth Texture"),
         size: wgpu::Extent3d {
             width: output_width,
@@ -248,9 +248,10 @@ pub async fn render_image(
         view_formats: &[],
     };
 
-    let depth_output_texture = device.create_texture(&color_depth_texture_descriptor);
+    let depth_output_texture: wgpu::Texture =
+        device.create_texture(&depth_output_texture_descriptor);
 
-    let submission_index = render_pass::render_to_output_buffer(
+    let submission_index: wgpu::SubmissionIndex = render_pass::render_to_output_buffer(
         &device,
         &queue,
         &pipeline,
@@ -263,7 +264,7 @@ pub async fn render_image(
             r: 0.0,
             g: 0.0,
             b: 0.0,
-            a: 1.0,
+            a: 0.0,
         },
         &color_output_texture,
         &depth_output_texture,
@@ -274,10 +275,10 @@ pub async fn render_image(
         &output_buffer,
     );
 
-    let buffer_slice = output_buffer.slice(..);
+    let output_buffer_slice: wgpu::BufferSlice = output_buffer.slice(..);
 
-    let output_img_pixels = copying::buffer_slice_to_byte_array(
-        buffer_slice,
+    let output_img_pixels: Vec<u8> = copying::buffer_slice_to_byte_array(
+        output_buffer_slice,
         submission_index,
         &device,
         output_height,
@@ -287,7 +288,7 @@ pub async fn render_image(
 
     output_buffer.unmap();
 
-    let export_location = format!(
+    let export_location: String = format!(
         "{}/{}.{}",
         export_dir.as_ref().to_string_lossy(),
         export_file_name.into(),
