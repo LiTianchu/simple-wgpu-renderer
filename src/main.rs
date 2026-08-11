@@ -57,23 +57,23 @@ fn load_model(path_str: impl Into<String>) -> Option<Model> {
             let end = next_face + 3;
 
             let face_indices = &mesh.indices[next_face..end];
-            println!(" face[{}].indices          = {:?}", face, face_indices);
+            // println!(" face[{}].indices          = {:?}", face, face_indices);
 
             loaded_model_mesh.push_face(face_indices[0], face_indices[1], face_indices[2]);
 
             if !mesh.texcoord_indices.is_empty() {
                 let texcoord_face_indices = &mesh.texcoord_indices[next_face..end];
-                println!(
-                    " face[{}].texcoord_indices = {:?}",
-                    face, texcoord_face_indices
-                );
+                // println!(
+                //     " face[{}].texcoord_indices = {:?}",
+                //     face, texcoord_face_indices
+                // );
             }
             if !mesh.normal_indices.is_empty() {
                 let normal_face_indices = &mesh.normal_indices[next_face..end];
-                println!(
-                    " face[{}].normal_indices   = {:?}",
-                    face, normal_face_indices
-                );
+                // println!(
+                //     " face[{}].normal_indices   = {:?}",
+                //     face, normal_face_indices
+                // );
             }
 
             next_face = end;

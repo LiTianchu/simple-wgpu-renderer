@@ -80,9 +80,9 @@ pub async fn render_image(
     let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
         &device,
         Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: 10.0,
+            x: 5.0,
+            y: 5.0,
+            z: 5.0,
         },
         Vec3 {
             x: 0.0,
@@ -103,8 +103,8 @@ pub async fn render_image(
     let light_uniform_buffer = buffer_factory::create_light_uniform_buffer(
         &device,
         Vec3 {
-            x: 0.0,
-            y: 0.0,
+            x: -1.23,
+            y: -1.5,
             z: -1.0,
         },
     );
@@ -247,13 +247,38 @@ pub async fn render_image(
         conservative: false,
     };
 
+    let depth_texture_descriptor = wgpu::TextureDescriptor {
+        label: Some("Image Export Depth Texture"),
+        size: wgpu::Extent3d {
+            width: output_width,
+            height: output_height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    };
+
+    let depth_texture = device.create_texture(&depth_texture_descriptor);
+
+    let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
     let pipeline_descriptor = wgpu::RenderPipelineDescriptor {
         label: Some("Image Export Render Pipeline"),
         layout: Some(&pipeline_layout),
         vertex: pipeline_vert_state,
         fragment: Some(pipeline_frag_state),
         primitive: pipeline_primitive_state,
-        depth_stencil: None,
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: Some(true),
+            depth_compare: Some(wgpu::CompareFunction::Less),
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
         multisample: wgpu::MultisampleState::default(),
         multiview_mask: None,
         cache: None,
@@ -327,7 +352,14 @@ pub async fn render_image(
         let render_pass_descriptor = wgpu::RenderPassDescriptor {
             label: Some("Image Export Render Pass"),
             color_attachments: &render_pass_color_attachments,
-            depth_stencil_attachment: None,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &depth_texture_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Discard,
+                }),
+                stencil_ops: None,
+            }),
             occlusion_query_set: None,
             timestamp_writes: None,
             multiview_mask: None,

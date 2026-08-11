@@ -58,7 +58,7 @@ fn fs_main(interp: V2F, @builtin(front_facing) is_front_facing: bool) -> @locati
         normal = -normal;
     }
 
-    let light_intensity = dot(normal, normalize(light.wc_light_direction));
+    let light_intensity = max(dot(normal, normalize(light.wc_light_direction)),0.0);
 
     // assume base color is packed in big-endian RGBA format
     let r = f32((material.base_color >> 24) & 0xFF) / 255.0;
@@ -66,5 +66,5 @@ fn fs_main(interp: V2F, @builtin(front_facing) is_front_facing: bool) -> @locati
     let b = f32((material.base_color >> 8) & 0xFF) / 255.0;
     let a = f32(material.base_color & 0xFF) / 255.0;
 
-    return vec4<f32>(r, g, b, a) * light_intensity;
+    return vec4<f32>(vec3<f32>(r, g, b) * light_intensity, a);
 }
