@@ -1,3 +1,6 @@
+use crate::ds::screen::Screen;
+use crate::ds::wgpu_resource::RendererState;
+use crate::utils::render_setup_factory;
 use std::sync::Arc;
 
 use winit::{
@@ -13,158 +16,127 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::EventLoopExtWebSys;
 
-pub struct State {
-    surface: wgpu::Surface<'static>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
-    is_surface_configured: bool,
+const DEMO_VERT_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
+const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
+
+pub struct AppState {
     window: Arc<Window>,
-    render_pipeline: wgpu::RenderPipeline,
+    renderer_state: RendererState,
 }
 
-impl State {
+impl AppState {
     pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let size = window.inner_size();
-
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            #[cfg(not(target_arch = "wasm32"))]
-            backends: wgpu::Backends::PRIMARY,
-            #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
-            flags: Default::default(),
-            memory_budget_thresholds: Default::default(),
-            backend_options: Default::default(),
-            display: None,
-        });
-
-        let surface = instance.create_surface(window.clone()).unwrap();
-
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-                apply_limit_buckets: true,
-            })
-            .await?;
-
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: None,
-                required_features: wgpu::Features::empty(),
-                experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                // WebGL doesn't support all of wgpu's features, so if building for the web have to disable some
-                required_limits: if cfg!(target_arch = "wasm32") {
-                    wgpu::Limits::downlevel_webgl2_defaults()
-                } else {
-                    wgpu::Limits::default()
-                },
-                memory_hints: Default::default(),
-                trace: wgpu::Trace::Off,
-            })
-            .await?;
-
-        let surface_caps = surface.get_capabilities(&adapter);
-
-        let surface_format = surface_caps
-            .formats
-            .iter()
-            .find(|f| f.is_srgb())
-            .copied()
-            .unwrap_or(surface_caps.formats[0]);
-
-        let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-            color_space: wgpu::SurfaceColorSpace::Auto,
-        };
-
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Triangle Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/triangle.wgsl").into()),
-        });
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[],
-                immediate_size: 0,
-            });
-
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: Some("vs_main"),
-                buffers: &[],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
+        let renderer_state = render_setup_factory::create_render_setup_raster_standard(
+            DEMO_VERT_SHADER_PATH,
+            DEMO_FRAG_SHADER_PATH,
+            Some(Screen {
+                window: window.clone(),
+                window_inner_width: size.width,
+                window_inner_height: size.height,
             }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview_mask: None,
-            cache: None,
-        });
+        )
+        .await?;
+
+        // let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        //     label: Some("Triangle Shader"),
+        //     source: wgpu::ShaderSource::Wgsl(include_str!("shaders/triangle.wgsl").into()),
+        // });
+        //
+        // let render_pipeline_layout =
+        //     device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        //         label: Some("Render Pipeline Layout"),
+        //         bind_group_layouts: &[],
+        //         immediate_size: 0,
+        //     });
+        //
+        // let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        //     label: Some("Render Pipeline"),
+        //     layout: Some(&render_pipeline_layout),
+        //     vertex: wgpu::VertexState {
+        //         module: &shader,
+        //         entry_point: Some("vs_main"),
+        //         buffers: &[],
+        //         compilation_options: wgpu::PipelineCompilationOptions::default(),
+        //     },
+        //     fragment: Some(wgpu::FragmentState {
+        //         module: &shader,
+        //         entry_point: Some("fs_main"),
+        //         targets: &[Some(wgpu::ColorTargetState {
+        //             format: config.format,
+        //             blend: Some(wgpu::BlendState::REPLACE),
+        //             write_mask: wgpu::ColorWrites::ALL,
+        //         })],
+        //         compilation_options: wgpu::PipelineCompilationOptions::default(),
+        //     }),
+        //     primitive: wgpu::PrimitiveState {
+        //         topology: wgpu::PrimitiveTopology::TriangleList,
+        //         strip_index_format: None,
+        //         front_face: wgpu::FrontFace::Ccw,
+        //         cull_mode: Some(wgpu::Face::Back),
+        //         polygon_mode: wgpu::PolygonMode::Fill,
+        //         unclipped_depth: false,
+        //         conservative: false,
+        //     },
+        //     depth_stencil: None,
+        //     multisample: wgpu::MultisampleState {
+        //         count: 1,
+        //         mask: !0,
+        //         alpha_to_coverage_enabled: false,
+        //     },
+        //     multiview_mask: None,
+        //     cache: None,
+        // });
 
         Ok(Self {
-            surface,
-            device,
-            queue,
-            config,
-            is_surface_configured: false,
             window,
-            render_pipeline,
+            renderer_state,
         })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
-            self.config.width = width;
-            self.config.height = height;
-            self.surface.configure(&self.device, &self.config);
-            self.is_surface_configured = true;
+            let surface_state = self
+                .renderer_state
+                .wgpu_object
+                .surface_state
+                .as_mut()
+                .unwrap();
+
+            surface_state.config.width = width;
+            surface_state.config.height = height;
+
+            surface_state.surface.configure(
+                &self.renderer_state.wgpu_object.device,
+                &surface_state.config,
+            );
+
+            surface_state.is_surface_configured = true;
         }
     }
 
     pub fn render(&mut self) -> anyhow::Result<()> {
         self.window.request_redraw();
 
-        if !self.is_surface_configured {
+        // TODO: Refactor this
+        if !self
+            .renderer_state
+            .wgpu_object
+            .surface_state
+            .as_ref()
+            .unwrap()
+            .is_surface_configured
+        {
             return Ok(());
         }
+        let surface_state = self
+            .renderer_state
+            .wgpu_object
+            .surface_state
+            .as_mut()
+            .unwrap();
 
-        let output = match self.surface.get_current_texture() {
+        let output = match surface_state.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
             wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
             wgpu::CurrentSurfaceTexture::Timeout
@@ -174,7 +146,10 @@ impl State {
                 return Ok(());
             }
             wgpu::CurrentSurfaceTexture::Outdated => {
-                self.surface.configure(&self.device, &self.config);
+                surface_state.surface.configure(
+                    &self.renderer_state.wgpu_object.device,
+                    &surface_state.config,
+                );
                 return Ok(());
             }
             wgpu::CurrentSurfaceTexture::Lost => {
@@ -187,6 +162,8 @@ impl State {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = self
+            .renderer_state
+            .wgpu_object
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
@@ -214,13 +191,16 @@ impl State {
                 timestamp_writes: None,
                 multiview_mask: None,
             });
-            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_pipeline(&self.renderer_state.render_pipeline);
             render_pass.draw(0..3, 0..1);
         }
 
         // submit will accept anything that implements IntoIter
-        self.queue.submit(std::iter::once(encoder.finish()));
-        self.queue.present(output);
+        self.renderer_state
+            .wgpu_object
+            .queue
+            .submit(std::iter::once(encoder.finish()));
+        self.renderer_state.wgpu_object.queue.present(output);
 
         Ok(())
     }
@@ -238,7 +218,7 @@ impl State {
 pub struct App {
     #[cfg(target_arch = "wasm32")]
     proxy: Option<winit::event_loop::EventLoopProxy<State>>,
-    state: Option<State>,
+    state: Option<AppState>,
 }
 
 impl App {
@@ -253,7 +233,7 @@ impl App {
     }
 }
 
-impl ApplicationHandler<State> for App {
+impl ApplicationHandler<AppState> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes();
@@ -276,7 +256,7 @@ impl ApplicationHandler<State> for App {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.state = Some(pollster::block_on(State::new(window)).unwrap());
+            self.state = Some(pollster::block_on(AppState::new(window)).unwrap());
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -300,7 +280,7 @@ impl ApplicationHandler<State> for App {
     }
 
     #[allow(unused_mut)]
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut event: State) {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, mut event: AppState) {
         #[cfg(target_arch = "wasm32")]
         {
             event.window.request_redraw();

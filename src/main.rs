@@ -173,6 +173,7 @@ fn main() -> anyhow::Result<()> {
     let arg_len = arg_list.len();
 
     let mut window_mode = false;
+    let mut model_path = "./assets/obj/cube/cube.obj".to_string();
 
     let mut loaded_model: Model = Model::new();
     for i in 0..arg_len {
@@ -184,14 +185,14 @@ fn main() -> anyhow::Result<()> {
                     panic!("No model path specificed after -m!");
                 }
 
-                let model_path = arg_list[i + 1].clone();
-
-                loaded_model = load_model(&model_path)
-                    .expect(&format!("No model loaded at path: {}", &model_path));
+                model_path = arg_list[i + 1].clone();
             }
             _ => {}
         };
     }
+
+    loaded_model =
+        load_model(&model_path).expect(&format!("No model loaded at path: {}", &model_path));
 
     if window_mode {
         #[cfg(target_arch = "wasm32")]

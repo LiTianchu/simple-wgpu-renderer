@@ -1,6 +1,6 @@
 use crate::ds::model::{Face, Vertex};
 use crate::render::render_pass;
-use crate::utils::{buffer_factory, copying, render_pipeline_factory};
+use crate::utils::{buffer_factory, copying, render_setup_factory};
 use glam::Vec3;
 use std::path::Path;
 use wgpu::util::DeviceExt;
@@ -23,101 +23,14 @@ pub async fn render_image(
         "Image should not have zero size!"
     );
 
-    let wgpu_instance_descriptor: wgpu::InstanceDescriptor = wgpu::InstanceDescriptor {
-        backends: wgpu::Backends::PRIMARY,
-        backend_options: Default::default(),
-        flags: Default::default(),
-        memory_budget_thresholds: Default::default(),
-        display: None,
-    };
-
-    let wgpu_instance = wgpu::Instance::new(wgpu_instance_descriptor);
-
-    let request_adator_options = wgpu::RequestAdapterOptions {
-        power_preference: Default::default(),
-        // None for off-screen rendering, need to pass in &surface if render on screen
-        compatible_surface: None,
-        force_fallback_adapter: false,
-        apply_limit_buckets: true,
-    };
-
-    let wgpu_adapter: wgpu::Adapter = wgpu_instance
-        .request_adapter(&request_adator_options)
-        .await?;
-
-    let device_required_features = wgpu::Features::empty();
-    let device_exp_features = wgpu::ExperimentalFeatures::disabled();
-
-    let device_descriptor = wgpu::DeviceDescriptor {
-        label: Some("Image Export Device Descriptor."),
-        required_features: device_required_features,
-        experimental_features: device_exp_features,
-        required_limits: wgpu::Limits::defaults(),
-        memory_hints: wgpu::MemoryHints::default(),
-        trace: wgpu::Trace::Off,
-    };
-
-    let (device, queue) = wgpu_adapter.request_device(&device_descriptor).await?;
-
-    let texture_format = wgpu::TextureFormat::Rgba8UnormSrgb;
-
-    let transform_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
-        label: Some("Image Export Transform Bind Group Layout"),
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0, // transforms
-            visibility: wgpu::ShaderStages::VERTEX,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
-            },
-            count: None,
-        }],
-    };
-
-    let mat_light_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
-        label: Some("Image Export Material-Light Bind Group Layout"),
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0, // light
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1, // material
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            },
-        ],
-    };
-
-    let transform_bind_grp_layout =
-        device.create_bind_group_layout(&transform_bind_grp_layout_descriptor);
-    let mat_light_bind_grp_layout =
-        device.create_bind_group_layout(&mat_light_bind_grp_layout_descriptor);
-
-    let pipeline = render_pipeline_factory::create_render_pipeline_raster(
-        &device,
-        &texture_format,
-        &[
-            Some(&transform_bind_grp_layout),
-            Some(&mat_light_bind_grp_layout),
-        ],
+    let renderer_state = render_setup_factory::create_render_setup_raster_standard(
         vert_shader_path,
         frag_shader_path,
+        None,
     )
-    .await
-    .expect("Failed to create rendering pipeline for image export.");
+    .await?;
+
+    let device = renderer_state.wgpu_object.device;
 
     let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
         label: Some("Image Export Vertex Buffer"),
@@ -175,7 +88,9 @@ pub async fn render_image(
 
     let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Image Export Transform Bind Group"),
-        layout: &transform_bind_grp_layout,
+        layout: &renderer_state
+            .bind_group_layouts
+            .transform_bind_group_layout,
         entries: &[wgpu::BindGroupEntry {
             binding: 0,
             resource: mvp_uniform_buffer.as_entire_binding(),
@@ -184,7 +99,9 @@ pub async fn render_image(
 
     let mat_light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Image Export Material-Light Bind Group"),
-        layout: &mat_light_bind_grp_layout,
+        layout: &renderer_state
+            .bind_group_layouts
+            .mat_light_bind_group_layout,
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
@@ -223,7 +140,7 @@ pub async fn render_image(
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: texture_format,
+        format: renderer_state.frag_texture_format,
         usage: wgpu::TextureUsages::COPY_DST
             | wgpu::TextureUsages::RENDER_ATTACHMENT
             | wgpu::TextureUsages::COPY_SRC,
@@ -253,8 +170,8 @@ pub async fn render_image(
 
     let submission_index: wgpu::SubmissionIndex = render_pass::render_to_output_buffer(
         &device,
-        &queue,
-        &pipeline,
+        &renderer_state.wgpu_object.queue,
+        &renderer_state.render_pipeline,
         &transform_bind_group,
         &mat_light_bind_group,
         &vertex_buffer,
