@@ -101,7 +101,7 @@ impl AppState {
                 .wgpu_object
                 .surface_state
                 .as_mut()
-                .unwrap();
+                .expect("Surface state should be initialized before resizing.");
 
             surface_state.config.width = width;
             surface_state.config.height = height;
@@ -124,7 +124,7 @@ impl AppState {
             .wgpu_object
             .surface_state
             .as_ref()
-            .unwrap()
+            .expect("Surface state should be initialized before rendering.")
             .is_surface_configured
         {
             return Ok(());
@@ -134,7 +134,7 @@ impl AppState {
             .wgpu_object
             .surface_state
             .as_mut()
-            .unwrap();
+            .expect("Surface state should be initialized before rendering.");
 
         let output = match surface_state.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
@@ -252,11 +252,18 @@ impl ApplicationHandler<AppState> for App {
             window_attributes = window_attributes.with_canvas(Some(html_canvas_element));
         }
 
-        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        let window = Arc::new(
+            event_loop
+                .create_window(window_attributes)
+                .expect("Failed to create window"),
+        );
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            self.state = Some(pollster::block_on(AppState::new(window)).unwrap());
+            self.state = Some(
+                pollster::block_on(AppState::new(window))
+                    .expect("Failed to create window in WASM 32"),
+            );
         }
 
         #[cfg(target_arch = "wasm32")]
