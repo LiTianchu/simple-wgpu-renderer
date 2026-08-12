@@ -120,6 +120,12 @@ pub fn render_to_screen(
 
     // Attachment
     depth_output_texture: &wgpu::Texture,
+
+    // UI
+    egui_renderer: &mut egui_wgpu::Renderer,
+    paint_jobs: &[egui::ClippedPrimitive],
+    textures_delta: &mut egui::TexturesDelta,
+    screen_descriptor: &egui_wgpu::ScreenDescriptor,
 ) -> Option<wgpu::SubmissionIndex> {
     let output = match surface.get_current_texture() {
         wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
@@ -146,10 +152,18 @@ pub fn render_to_screen(
     let depth_output_texture_view =
         depth_output_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
+    // upload egui textures
+    for (id, image_deltas) in textures_delta.set.drain() {
+        for image_delta in image_deltas {
+            egui_renderer.update_texture(device, queue, id, &image_delta);
+        }
+    }
+
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Window Command Encoder"),
     });
 
+    // 3D scene render pass
     {
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Window Render Pass"),
@@ -183,8 +197,43 @@ pub fn render_to_screen(
         render_pass.draw_indexed(draw_indices, 0, 0..1);
     }
 
-    // submit will accept anything that implements IntoIter
-    let submission_index = queue.submit(std::iter::once(encoder.finish()));
+    // egui command buffer
+    let user_command_buffers =
+        egui_renderer.update_buffers(device, queue, &mut encoder, paint_jobs, screen_descriptor);
+
+    // egui render pass
+    {
+        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("EGUI Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                depth_slice: None,
+                ops: wgpu::Operations {
+                    // preseve the 3D scene underneath
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            occlusion_query_set: None,
+            timestamp_writes: None,
+            multiview_mask: None,
+        });
+        egui_renderer.render(
+            &mut render_pass.forget_lifetime(),
+            paint_jobs,
+            screen_descriptor,
+        );
+    }
+
+    // submit both 3D pass and UI pass
+    let submission_index = queue.submit(user_command_buffers.into_iter().chain([encoder.finish()]));
+
     queue.present(output);
+    for id in textures_delta.free.drain() {
+        egui_renderer.free_texture(&id);
+    }
+
     Some(submission_index)
 }

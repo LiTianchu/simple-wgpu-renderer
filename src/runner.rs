@@ -1,10 +1,11 @@
-use crate::ds::screen::Screen;
+use crate::ds::screen::{EguiFrame, Screen, ViewerState};
 use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::{model::Model, wgpu_resource::RendererState};
 use crate::render::{render_pass, render_payload};
 use crate::utils::render_setup_factory;
 use std::sync::Arc;
 
+use winit::dpi::PhysicalSize;
 use winit::{
     application::ApplicationHandler,
     event::*,
@@ -19,6 +20,10 @@ const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
 pub struct AppState {
     window: Arc<Window>,
     renderer_state: RendererState,
+    egui_ctx: egui::Context,
+    egui_winit: egui_winit::State,
+    egui_renderer: egui_wgpu::Renderer,
+    viewer_state: ViewerState,
 }
 
 impl AppState {
@@ -35,9 +40,49 @@ impl AppState {
         )
         .await?;
 
+        // ========= EGUI Setup =========
+        let egui_ctx = egui::Context::default();
+        let max_texture_side = renderer_state
+            .wgpu_object
+            .device
+            .limits()
+            .max_texture_dimension_2d as usize;
+
+        let surface_format = renderer_state
+            .wgpu_object
+            .surface_state
+            .as_ref()
+            .expect("Surface state should be initialized before creating egui renderer.")
+            .config
+            .format;
+
+        let egui_winit = egui_winit::State::new(
+            egui_ctx.clone(),
+            egui::ViewportId::ROOT,
+            window.as_ref(),
+            Some(window.scale_factor() as f32),
+            window.theme(),
+            Some(max_texture_side),
+        );
+
+        let egui_renderer = egui_wgpu::Renderer::new(
+            &renderer_state.wgpu_object.device,
+            surface_format,
+            Default::default(),
+        );
+        // ========= End EGUI Setup =========
+
+        let viewer_state = ViewerState {
+            rotation_euler: glam::Vec3::new(0.0, 0.0, 0.0),
+        };
+
         Ok(Self {
             window,
             renderer_state,
+            egui_ctx,
+            egui_winit,
+            egui_renderer,
+            viewer_state,
         })
     }
 
@@ -67,6 +112,7 @@ impl AppState {
         render_payload: &render_payload::RenderPayload,
         draw_indices: core::ops::Range<u32>,
         depth_attachment_texture: &wgpu::Texture,
+        egui_frame: &mut EguiFrame,
     ) -> anyhow::Result<()> {
         self.window.request_redraw();
         if !self
@@ -109,6 +155,10 @@ impl AppState {
             draw_indices,
             clear_color,
             depth_attachment_texture,
+            &mut self.egui_renderer,
+            egui_frame.paint_jobs.as_slice(),
+            &mut egui_frame.textures_delta,
+            &egui_frame.screen_descriptor,
         );
         Ok(())
     }
@@ -119,6 +169,55 @@ impl AppState {
         match (code, is_pressed) {
             (KeyCode::Escape, true) => event_loop.exit(),
             _ => {}
+        }
+    }
+
+    fn create_egui_frame(&mut self, event_loop: &ActiveEventLoop) -> EguiFrame {
+        let raw_input = self.egui_winit.take_egui_input(&self.window);
+
+        let output: egui::FullOutput = self.egui_ctx.run_ui(raw_input, |ui| {
+            ui.heading("My Renderer");
+            ui.add(
+                egui::Slider::new(
+                    &mut self.viewer_state.rotation_euler.y,
+                    0.0..=std::f32::consts::TAU,
+                )
+                .text("Rotation Y"),
+            );
+        });
+
+        // destruct output
+        let egui::FullOutput {
+            platform_output,
+            textures_delta,
+            shapes,
+            pixels_per_point,
+            ..
+        } = output;
+
+        self.egui_winit.handle_platform_output_with_event_loop(
+            &self.window,
+            event_loop,
+            platform_output,
+        );
+
+        let paint_jobs = self.egui_ctx.tessellate(shapes, pixels_per_point);
+
+        let config = &self
+            .renderer_state
+            .wgpu_object
+            .surface_state
+            .as_ref()
+            .expect("Surface state should be initialized before creating egui frame.")
+            .config;
+
+        EguiFrame {
+            paint_jobs,
+            textures_delta,
+            screen_descriptor: egui_wgpu::ScreenDescriptor {
+                size_in_pixels: [config.width, config.height],
+                pixels_per_point: pixels_per_point,
+            },
         }
     }
 }
@@ -140,7 +239,9 @@ impl App {
 impl ApplicationHandler<AppState> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         #[allow(unused_mut)]
-        let mut window_attributes = Window::default_attributes();
+        let mut window_attributes = Window::default_attributes()
+            .with_title("My Renderer")
+            .with_inner_size(PhysicalSize::new(1920, 1080));
 
         let window = Arc::new(
             event_loop
@@ -172,11 +273,32 @@ impl ApplicationHandler<AppState> for App {
             None => return,
         };
 
+        if matches!(&event, WindowEvent::CloseRequested) {
+            event_loop.exit();
+        }
+
+        // forward window event to egui
+        let egui_response = state
+            .egui_winit
+            .on_window_event(state.window.as_ref(), &event);
+
+        // if need ui refresh, request redraw
+        if egui_response.repaint {
+            state.window.request_redraw();
+        }
+
+        // prevent ui click-through
+        if egui_response.consumed {
+            return;
+        }
+
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => state.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
                 state.update();
+
+                let mut egui_frame = state.create_egui_frame(event_loop);
 
                 let renderer_state = &mut state.renderer_state;
                 let wgpu_obj = &mut renderer_state.wgpu_object;
@@ -186,12 +308,12 @@ impl ApplicationHandler<AppState> for App {
                     .expect("Surface state should be initialized before resizing.");
 
                 let current_model = &mut self.model_list[0]; // TODO: Unsafe, for temporary testing
+                let bind_group_layouts = &renderer_state.bind_group_layouts;
+                let device = &mut wgpu_obj.device;
 
                 let face_len = current_model.mesh().faces().len();
                 let output_width = surface_state.config.width;
                 let output_height = surface_state.config.height;
-
-                let device = &mut wgpu_obj.device;
 
                 let depth_attachment_texture_descriptor = wgpu::TextureDescriptor {
                     label: Some("Output Depth Texture"),
@@ -211,7 +333,8 @@ impl ApplicationHandler<AppState> for App {
                 let depth_attachment_texture: wgpu::Texture =
                     device.create_texture(&depth_attachment_texture_descriptor);
 
-                let object_transform = ObjectTransform::default();
+                let mut object_transform = ObjectTransform::default();
+                object_transform.set_rotation_euler(state.viewer_state.rotation_euler);
 
                 let camera_info = CameraInfo {
                     position: glam::Vec3::new(5.0, 5.0, 5.0),
@@ -228,7 +351,7 @@ impl ApplicationHandler<AppState> for App {
                 let render_payload = render_payload::create_initial_render_payload(
                     device,
                     current_model,
-                    &renderer_state.bind_group_layouts,
+                    bind_group_layouts,
                     &object_transform,
                     &camera_info,
                     &projection_info,
@@ -240,6 +363,7 @@ impl ApplicationHandler<AppState> for App {
                     &render_payload,
                     0..(face_len * 3) as u32,
                     &depth_attachment_texture,
+                    &mut egui_frame,
                 ) {
                     Ok(_) => {}
                     Err(e) => {

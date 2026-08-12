@@ -90,8 +90,6 @@ pub async fn create_render_setup_raster_standard(
             transform_bind_group_layout: transform_bind_grp_layout,
             mat_light_bind_group_layout: mat_light_bind_grp_layout,
         },
-        frag_shader_path: frag_shader_path.as_ref().to_path_buf(),
-        vert_shader_path: vert_shader_path.as_ref().to_path_buf(),
     };
 
     Ok(renderer_state)

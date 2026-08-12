@@ -1,5 +1,4 @@
 use crate::ds::screen::Screen;
-use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct WgpuObject {
@@ -132,8 +131,6 @@ pub struct RendererState {
     pub render_pipeline: wgpu::RenderPipeline,
     pub bind_group_layouts: BindGroupLayoutState,
     pub frag_texture_format: wgpu::TextureFormat,
-    pub vert_shader_path: PathBuf,
-    pub frag_shader_path: PathBuf,
 }
 
 #[derive(Debug)]

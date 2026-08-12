@@ -16,6 +16,11 @@ impl Default for ObjectTransform {
         }
     }
 }
+impl ObjectTransform {
+    pub fn set_rotation_euler(&mut self, euler: Vec3) {
+        self.rotation = glam::Quat::from_euler(glam::EulerRot::XYZ, euler.x, euler.y, euler.z);
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct CameraInfo {
