@@ -1,5 +1,5 @@
-use crate::ds::model::{Face, Vertex};
-use crate::render::render_pass;
+use crate::ds::model::{Face, Model, Vertex};
+use crate::render::{render_pass, render_payload};
 use crate::utils::{buffer_factory, copying, render_setup_factory};
 use glam::Vec3;
 use std::path::Path;
@@ -8,11 +8,10 @@ use wgpu::util::DeviceExt;
 const BYTES_PER_PIXEL: usize = 4;
 
 pub async fn render_image(
+    model: &Model,
     export_dir: impl AsRef<Path>,
     export_file_name: impl Into<String>,
     export_file_ext: impl Into<String>,
-    vertices: &[Vertex],
-    faces: &[Face],
     vert_shader_path: impl AsRef<Path>,
     frag_shader_path: impl AsRef<Path>,
     output_width: u32,
@@ -22,6 +21,8 @@ pub async fn render_image(
         output_width > 0 && output_height > 0,
         "Image should not have zero size!"
     );
+    let vertices = model.mesh().verts();
+    let faces = model.mesh().faces();
 
     let renderer_state = render_setup_factory::create_render_setup_raster_standard(
         vert_shader_path,
@@ -32,87 +33,13 @@ pub async fn render_image(
 
     let device = renderer_state.wgpu_object.device;
 
-    let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
-        label: Some("Image Export Vertex Buffer"),
-        contents: bytemuck::cast_slice(vertices),
-        usage: wgpu::BufferUsages::VERTEX,
-    };
-
-    let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
-
-    let face_slice: &[u8] = bytemuck::cast_slice(faces);
-    let index_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
-        label: Some("Image Export Index Buffer"),
-        contents: face_slice,
-        usage: wgpu::BufferUsages::INDEX,
-    };
-
-    let index_buffer = device.create_buffer_init(&index_buffer_init_descriptor);
-
-    let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
+    let render_payload = render_payload::get_initial_render_payload(
         &device,
-        Vec3 {
-            x: 5.0,
-            y: 5.0,
-            z: 5.0,
-        },
-        Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        },
-        Vec3 {
-            x: 0.0,
-            y: 1.0,
-            z: 0.0,
-        },
-        30.0,
-        1.0,
-        1.0,
-        1000.0,
+        model,
+        output_width,
+        output_height,
+        &renderer_state.bind_group_layouts,
     );
-
-    let light_uniform_buffer = buffer_factory::create_light_uniform_buffer(
-        &device,
-        Vec3 {
-            x: -1.23,
-            y: -1.5,
-            z: -1.0,
-        },
-    );
-
-    let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
-        &device,
-        [149, 191, 201, 255], // #95bfc9 green-blueish white
-    );
-
-    let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Image Export Transform Bind Group"),
-        layout: &renderer_state
-            .bind_group_layouts
-            .transform_bind_group_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: mvp_uniform_buffer.as_entire_binding(),
-        }],
-    });
-
-    let mat_light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Image Export Material-Light Bind Group"),
-        layout: &renderer_state
-            .bind_group_layouts
-            .mat_light_bind_group_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_uniform_buffer.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: material_uniform_buffer.as_entire_binding(),
-            },
-        ],
-    });
 
     let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
     let alignment: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
@@ -168,14 +95,22 @@ pub async fn render_image(
     let depth_output_texture: wgpu::Texture =
         device.create_texture(&depth_output_texture_descriptor);
 
+    let render_payload = render_payload::get_initial_render_payload(
+        &device,
+        model,
+        output_width,
+        output_height,
+        &renderer_state.bind_group_layouts,
+    );
+
     let submission_index: wgpu::SubmissionIndex = render_pass::render_to_output_buffer(
         &device,
         &renderer_state.wgpu_object.queue,
         &renderer_state.render_pipeline,
-        &transform_bind_group,
-        &mat_light_bind_group,
-        &vertex_buffer,
-        &index_buffer,
+        &render_payload.transform_bind_group,
+        &render_payload.mat_light_bind_group,
+        &render_payload.vertex_buffer,
+        &render_payload.index_buffer,
         0..(faces.len() * 3) as u32,
         wgpu::Color {
             r: 0.0,

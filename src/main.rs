@@ -231,11 +231,10 @@ fn main() -> anyhow::Result<()> {
             loaded_model.mesh().faces().len()
         );
         pollster::block_on(image_export::render_image(
+            &loaded_model,
             image_export_dir,
             IMAGE_FILE_NAME,
             IMAGE_FILE_FORMAT,
-            loaded_model.mesh().verts(),
-            loaded_model.mesh().faces(),
             DEMO_VERT_SHADER_PATH,
             DEMO_FRAG_SHADER_PATH,
             500,
