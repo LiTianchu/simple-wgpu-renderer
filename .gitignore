@@ -1,13 +1,23 @@
 /target
 /pkg
 
-.zed
-.vscode
-.vs
-.idea
+.zed/
+.vscode/
+.vs/
+.idea/
 
-.codex
+.codex/
+.agents/
+.claude/
 
-.exe
+*.exe
+*.o
 
 DS_Store
+
+*Zone.Identifier
+
+*.zip
+*.7z
+*.tar.gz
+*.rar
