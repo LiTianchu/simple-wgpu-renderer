@@ -101,3 +101,90 @@ pub fn render_to_output_buffer(
     let submission_index = queue.submit([command_encoder.finish()]);
     submission_index
 }
+
+pub fn render_to_screen(
+    // WGPU resources
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    surface: &wgpu::Surface,
+    surface_config: &wgpu::SurfaceConfiguration,
+    render_pipeline: &wgpu::RenderPipeline,
+
+    // Drawing resources
+    transform_bind_group: &wgpu::BindGroup,
+    mat_light_bind_group: &wgpu::BindGroup,
+    vertex_buffer: &wgpu::Buffer,
+    index_buffer: &wgpu::Buffer,
+    draw_indices: std::ops::Range<u32>,
+    clear_color: wgpu::Color,
+
+    // Attachment
+    depth_output_texture: &wgpu::Texture,
+) -> Option<wgpu::SubmissionIndex> {
+    let output = match surface.get_current_texture() {
+        wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
+        wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
+        wgpu::CurrentSurfaceTexture::Timeout
+        | wgpu::CurrentSurfaceTexture::Occluded
+        | wgpu::CurrentSurfaceTexture::Validation => {
+            // skip this frame
+            return None;
+        }
+        wgpu::CurrentSurfaceTexture::Outdated => {
+            surface.configure(device, surface_config);
+            return None;
+        }
+        wgpu::CurrentSurfaceTexture::Lost => {
+            panic!("Device is lost during window render!")
+        }
+    };
+
+    let view = output
+        .texture
+        .create_view(&wgpu::TextureViewDescriptor::default());
+
+    let depth_output_texture_view =
+        depth_output_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        label: Some("Window Command Encoder"),
+    });
+
+    {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Window Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                depth_slice: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(clear_color),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &depth_output_texture_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Discard,
+                }),
+                stencil_ops: None,
+            }),
+            occlusion_query_set: None,
+            timestamp_writes: None,
+            multiview_mask: None,
+        });
+
+        render_pass.set_pipeline(render_pipeline);
+        render_pass.set_bind_group(0, transform_bind_group, &[]);
+        render_pass.set_bind_group(1, mat_light_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(draw_indices, 0, 0..1);
+    }
+
+    // submit will accept anything that implements IntoIter
+    let submission_index = queue.submit(std::iter::once(encoder.finish()));
+    queue.present(output);
+    Some(submission_index)
+}

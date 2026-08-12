@@ -175,7 +175,7 @@ fn main() -> anyhow::Result<()> {
     let mut window_mode = false;
     let mut model_path = "./assets/obj/cube/cube.obj".to_string();
 
-    let mut loaded_model: Model = Model::new();
+    let loaded_model: Model;
     for i in 0..arg_len {
         let arg_str = arg_list[i].as_ref();
         match arg_str {
@@ -199,7 +199,7 @@ fn main() -> anyhow::Result<()> {
         run_web().expect("Failed to run the application in web mode");
 
         #[cfg(not(target_arch = "wasm32"))]
-        run().expect("Failed to run the application");
+        run(loaded_model).expect("Failed to run the application");
         Ok(())
     } else {
         // export image

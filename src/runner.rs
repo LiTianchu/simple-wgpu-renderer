@@ -1,7 +1,10 @@
 use crate::ds::screen::Screen;
-use crate::ds::wgpu_resource::RendererState;
-use crate::utils::render_setup_factory;
+use crate::ds::{model::Model, wgpu_resource::RendererState};
+use crate::render::render_pass;
+use crate::utils::{buffer_factory, render_setup_factory};
+use glam::Vec3;
 use std::sync::Arc;
+use wgpu::util::DeviceExt;
 
 use winit::{
     application::ApplicationHandler,
@@ -38,56 +41,6 @@ impl AppState {
         )
         .await?;
 
-        // let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        //     label: Some("Triangle Shader"),
-        //     source: wgpu::ShaderSource::Wgsl(include_str!("shaders/triangle.wgsl").into()),
-        // });
-        //
-        // let render_pipeline_layout =
-        //     device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        //         label: Some("Render Pipeline Layout"),
-        //         bind_group_layouts: &[],
-        //         immediate_size: 0,
-        //     });
-        //
-        // let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        //     label: Some("Render Pipeline"),
-        //     layout: Some(&render_pipeline_layout),
-        //     vertex: wgpu::VertexState {
-        //         module: &shader,
-        //         entry_point: Some("vs_main"),
-        //         buffers: &[],
-        //         compilation_options: wgpu::PipelineCompilationOptions::default(),
-        //     },
-        //     fragment: Some(wgpu::FragmentState {
-        //         module: &shader,
-        //         entry_point: Some("fs_main"),
-        //         targets: &[Some(wgpu::ColorTargetState {
-        //             format: config.format,
-        //             blend: Some(wgpu::BlendState::REPLACE),
-        //             write_mask: wgpu::ColorWrites::ALL,
-        //         })],
-        //         compilation_options: wgpu::PipelineCompilationOptions::default(),
-        //     }),
-        //     primitive: wgpu::PrimitiveState {
-        //         topology: wgpu::PrimitiveTopology::TriangleList,
-        //         strip_index_format: None,
-        //         front_face: wgpu::FrontFace::Ccw,
-        //         cull_mode: Some(wgpu::Face::Back),
-        //         polygon_mode: wgpu::PolygonMode::Fill,
-        //         unclipped_depth: false,
-        //         conservative: false,
-        //     },
-        //     depth_stencil: None,
-        //     multisample: wgpu::MultisampleState {
-        //         count: 1,
-        //         mask: !0,
-        //         alpha_to_coverage_enabled: false,
-        //     },
-        //     multiview_mask: None,
-        //     cache: None,
-        // });
-
         Ok(Self {
             window,
             renderer_state,
@@ -115,10 +68,17 @@ impl AppState {
         }
     }
 
-    pub fn render(&mut self) -> anyhow::Result<()> {
+    pub fn render(
+        &mut self,
+        transform_bind_group: &wgpu::BindGroup,
+        mat_light_bind_group: &wgpu::BindGroup,
+        vertex_buffer: &wgpu::Buffer,
+        index_buffer: &wgpu::Buffer,
+        draw_indices: core::ops::Range<u32>,
+        depth_attachment_texture: &wgpu::Texture,
+    ) -> anyhow::Result<()> {
         self.window.request_redraw();
 
-        // TODO: Refactor this
         if !self
             .renderer_state
             .wgpu_object
@@ -129,79 +89,32 @@ impl AppState {
         {
             return Ok(());
         }
-        let surface_state = self
-            .renderer_state
-            .wgpu_object
-            .surface_state
-            .as_mut()
-            .expect("Surface state should be initialized before rendering.");
 
-        let output = match surface_state.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
-            wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
-            wgpu::CurrentSurfaceTexture::Timeout
-            | wgpu::CurrentSurfaceTexture::Occluded
-            | wgpu::CurrentSurfaceTexture::Validation => {
-                // skip this frame
-                return Ok(());
-            }
-            wgpu::CurrentSurfaceTexture::Outdated => {
-                surface_state.surface.configure(
-                    &self.renderer_state.wgpu_object.device,
-                    &surface_state.config,
-                );
-                return Ok(());
-            }
-            wgpu::CurrentSurfaceTexture::Lost => {
-                anyhow::bail!("Lost device");
-            }
+        let wgpu_obj = &mut self.renderer_state.wgpu_object;
+        let render_pipeline = &self.renderer_state.render_pipeline;
+        let surface_state = wgpu_obj.surface_state.as_mut().unwrap();
+
+        let clear_color = wgpu::Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
         };
 
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder = self
-            .renderer_state
-            .wgpu_object
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    depth_slice: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                occlusion_query_set: None,
-                timestamp_writes: None,
-                multiview_mask: None,
-            });
-            render_pass.set_pipeline(&self.renderer_state.render_pipeline);
-            render_pass.draw(0..3, 0..1);
-        }
-
-        // submit will accept anything that implements IntoIter
-        self.renderer_state
-            .wgpu_object
-            .queue
-            .submit(std::iter::once(encoder.finish()));
-        self.renderer_state.wgpu_object.queue.present(output);
-
+        let _submission_index = render_pass::render_to_screen(
+            &wgpu_obj.device,
+            &wgpu_obj.queue,
+            &surface_state.surface,
+            &surface_state.config,
+            &render_pipeline,
+            transform_bind_group,
+            mat_light_bind_group,
+            vertex_buffer,
+            index_buffer,
+            draw_indices,
+            clear_color,
+            depth_attachment_texture,
+        );
         Ok(())
     }
 
@@ -219,14 +132,20 @@ pub struct App {
     #[cfg(target_arch = "wasm32")]
     proxy: Option<winit::event_loop::EventLoopProxy<State>>,
     state: Option<AppState>,
+    model_list: Vec<Model>,
 }
 
 impl App {
-    pub fn new(#[cfg(target_arch = "wasm32")] event_loop: &EventLoop<State>) -> Self {
+    pub fn new(
+        #[cfg(target_arch = "wasm32")] event_loop: &EventLoop<State>,
+        initial_model: Model,
+    ) -> Self {
         #[cfg(target_arch = "wasm32")]
         let proxy = Some(event_loop.create_proxy());
+
         Self {
             state: None,
+            model_list: vec![initial_model],
             #[cfg(target_arch = "wasm32")]
             proxy,
         }
@@ -305,7 +224,7 @@ impl ApplicationHandler<AppState> for App {
         _window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
-        let state = match &mut self.state {
+        let state: &mut AppState = match &mut self.state {
             Some(canvas) => canvas,
             None => return,
         };
@@ -315,7 +234,135 @@ impl ApplicationHandler<AppState> for App {
             WindowEvent::Resized(size) => state.resize(size.width, size.height),
             WindowEvent::RedrawRequested => {
                 state.update();
-                match state.render() {
+
+                let renderer_state = &mut state.renderer_state;
+                let wgpu_obj = &mut renderer_state.wgpu_object;
+                let surface_state = wgpu_obj
+                    .surface_state
+                    .as_mut()
+                    .expect("Surface state should be initialized before resizing.");
+
+                let current_model = &mut self.model_list[0]; // TODO: Unsafe, for temporary testing
+
+                let vertices_slice = current_model.mesh().positions();
+                let faces_slice = current_model.mesh().faces();
+                let output_width = surface_state.config.width;
+                let output_height = surface_state.config.height;
+
+                let device = &mut wgpu_obj.device;
+
+                // ============ Render Payload ===============
+                // TODO: Factor out this into a struct
+                let depth_output_texture_descriptor = wgpu::TextureDescriptor {
+                    label: Some("Image Export Depth Texture"),
+                    size: wgpu::Extent3d {
+                        width: output_width,
+                        height: output_height,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32Float,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                };
+
+                let depth_attachment_texture: wgpu::Texture =
+                    device.create_texture(&depth_output_texture_descriptor);
+
+                let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
+                    label: Some("Image Export Vertex Buffer"),
+                    contents: bytemuck::cast_slice(vertices_slice),
+                    usage: wgpu::BufferUsages::VERTEX,
+                };
+
+                let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
+
+                let face_slice: &[u8] = bytemuck::cast_slice(current_model.mesh().faces());
+                let index_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
+                    label: Some("Image Export Index Buffer"),
+                    contents: face_slice,
+                    usage: wgpu::BufferUsages::INDEX,
+                };
+
+                let index_buffer = device.create_buffer_init(&index_buffer_init_descriptor);
+
+                let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
+                    &device,
+                    Vec3 {
+                        x: 5.0,
+                        y: 5.0,
+                        z: 5.0,
+                    },
+                    Vec3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 0.0,
+                    },
+                    Vec3 {
+                        x: 0.0,
+                        y: 1.0,
+                        z: 0.0,
+                    },
+                    30.0,
+                    1.0,
+                    1.0,
+                    1000.0,
+                );
+
+                let light_uniform_buffer = buffer_factory::create_light_uniform_buffer(
+                    &device,
+                    Vec3 {
+                        x: -1.23,
+                        y: -1.5,
+                        z: -1.0,
+                    },
+                );
+
+                let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
+                    &device,
+                    [149, 191, 201, 255], // red color
+                );
+
+                let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Image Export Transform Bind Group"),
+                    layout: &renderer_state
+                        .bind_group_layouts
+                        .transform_bind_group_layout,
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: mvp_uniform_buffer.as_entire_binding(),
+                    }],
+                });
+
+                let mat_light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Image Export Material-Light Bind Group"),
+                    layout: &renderer_state
+                        .bind_group_layouts
+                        .mat_light_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: light_uniform_buffer.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: material_uniform_buffer.as_entire_binding(),
+                        },
+                    ],
+                });
+                // =========== End Render Payload ================
+
+                let face_len = faces_slice.len();
+                match state.render(
+                    &transform_bind_group,
+                    &mat_light_bind_group,
+                    &vertex_buffer,
+                    &index_buffer,
+                    0..(face_len * 3) as u32,
+                    &depth_attachment_texture,
+                ) {
                     Ok(_) => {}
                     Err(e) => {
                         log::error!("{e}");
@@ -337,7 +384,7 @@ impl ApplicationHandler<AppState> for App {
     }
 }
 
-pub fn run() -> anyhow::Result<()> {
+pub fn run(initial_model: Model) -> anyhow::Result<()> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         env_logger::init();
@@ -350,7 +397,7 @@ pub fn run() -> anyhow::Result<()> {
     let event_loop = EventLoop::with_user_event().build()?;
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let mut app = App::new();
+        let mut app = App::new(initial_model);
         event_loop.run_app(&mut app)?;
     }
     #[cfg(target_arch = "wasm32")]
