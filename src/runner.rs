@@ -1,10 +1,8 @@
 use crate::ds::screen::Screen;
 use crate::ds::{model::Model, wgpu_resource::RendererState};
 use crate::render::{render_pass, render_payload};
-use crate::utils::{buffer_factory, render_setup_factory};
-use glam::Vec3;
+use crate::utils::render_setup_factory;
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
 
 use winit::{
     application::ApplicationHandler,
@@ -250,11 +248,27 @@ impl ApplicationHandler<AppState> for App {
 
                 let device = &mut wgpu_obj.device;
 
-                let render_payload = render_payload::get_initial_render_payload(
+                let depth_attachment_texture_descriptor = wgpu::TextureDescriptor {
+                    label: Some("Output Depth Texture"),
+                    size: wgpu::Extent3d {
+                        width: output_width,
+                        height: output_height,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32Float,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                };
+
+                let depth_attachment_texture: wgpu::Texture =
+                    device.create_texture(&depth_attachment_texture_descriptor);
+
+                let render_payload = render_payload::create_initial_render_payload(
                     device,
                     current_model,
-                    output_width,
-                    output_height,
                     &renderer_state.bind_group_layouts,
                 );
 
@@ -264,7 +278,7 @@ impl ApplicationHandler<AppState> for App {
                     &render_payload.vertex_buffer,
                     &render_payload.index_buffer,
                     0..(face_len * 3) as u32,
-                    &render_payload.depth_attachment_texture,
+                    &depth_attachment_texture,
                 ) {
                     Ok(_) => {}
                     Err(e) => {

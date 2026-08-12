@@ -1,9 +1,7 @@
-use crate::ds::model::{Face, Model, Vertex};
+use crate::ds::model::Model;
 use crate::render::{render_pass, render_payload};
-use crate::utils::{buffer_factory, copying, render_setup_factory};
-use glam::Vec3;
+use crate::utils::{copying, render_setup_factory};
 use std::path::Path;
-use wgpu::util::DeviceExt;
 
 const BYTES_PER_PIXEL: usize = 4;
 
@@ -21,8 +19,6 @@ pub async fn render_image(
         output_width > 0 && output_height > 0,
         "Image should not have zero size!"
     );
-    let vertices = model.mesh().verts();
-    let faces = model.mesh().faces();
 
     let renderer_state = render_setup_factory::create_render_setup_raster_standard(
         vert_shader_path,
@@ -32,14 +28,6 @@ pub async fn render_image(
     .await?;
 
     let device = renderer_state.wgpu_object.device;
-
-    let render_payload = render_payload::get_initial_render_payload(
-        &device,
-        model,
-        output_width,
-        output_height,
-        &renderer_state.bind_group_layouts,
-    );
 
     let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
     let alignment: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
@@ -77,8 +65,8 @@ pub async fn render_image(
     let color_output_texture: wgpu::Texture =
         device.create_texture(&color_output_texture_descriptor);
 
-    let depth_output_texture_descriptor = wgpu::TextureDescriptor {
-        label: Some("Image Export Depth Texture"),
+    let depth_attachment_texture_descriptor = wgpu::TextureDescriptor {
+        label: Some("Output Depth Texture"),
         size: wgpu::Extent3d {
             width: output_width,
             height: output_height,
@@ -92,16 +80,16 @@ pub async fn render_image(
         view_formats: &[],
     };
 
-    let depth_output_texture: wgpu::Texture =
-        device.create_texture(&depth_output_texture_descriptor);
+    let depth_attachment_texture: wgpu::Texture =
+        device.create_texture(&depth_attachment_texture_descriptor);
 
-    let render_payload = render_payload::get_initial_render_payload(
+    let render_payload = render_payload::create_initial_render_payload(
         &device,
         model,
-        output_width,
-        output_height,
         &renderer_state.bind_group_layouts,
     );
+
+    let faces = model.mesh().faces();
 
     let submission_index: wgpu::SubmissionIndex = render_pass::render_to_output_buffer(
         &device,
@@ -119,7 +107,7 @@ pub async fn render_image(
             a: 0.0,
         },
         &color_output_texture,
-        &depth_output_texture,
+        &depth_attachment_texture,
         output_width,
         output_height,
         padded_byte_per_row,

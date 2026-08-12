@@ -5,39 +5,18 @@ use crate::{
 use glam::Vec3;
 use wgpu::util::DeviceExt;
 pub struct RenderPayload {
-    pub depth_attachment_texture: wgpu::Texture,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub transform_bind_group: wgpu::BindGroup,
     pub mat_light_bind_group: wgpu::BindGroup,
 }
 
-pub fn get_initial_render_payload(
+pub fn create_initial_render_payload(
     device: &wgpu::Device,
     initial_model: &Model,
-    output_width: u32,
-    output_height: u32,
     bind_group_layouts: &BindGroupLayoutState,
 ) -> RenderPayload {
     let vertices_slice = initial_model.mesh().verts();
-
-    let depth_output_texture_descriptor = wgpu::TextureDescriptor {
-        label: Some("Output Depth Texture"),
-        size: wgpu::Extent3d {
-            width: output_width,
-            height: output_height,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Depth32Float,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-        view_formats: &[],
-    };
-
-    let depth_attachment_texture: wgpu::Texture =
-        device.create_texture(&depth_output_texture_descriptor);
 
     let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
         label: Some("Vertex Buffer"),
@@ -118,7 +97,6 @@ pub fn get_initial_render_payload(
     });
 
     RenderPayload {
-        depth_attachment_texture,
         vertex_buffer,
         index_buffer,
         transform_bind_group,
