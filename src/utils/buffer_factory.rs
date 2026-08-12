@@ -1,26 +1,29 @@
-use crate::ds::model::{LightUniform, MaterialUniform};
+use crate::ds::{
+    model::{LightUniform, MaterialUniform},
+    transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
+};
 use crate::utils::transform;
 use glam::Vec3;
 use wgpu::util::DeviceExt;
 
 pub fn create_mvp_uniform_buffer(
     device: &wgpu::Device,
-    cam_pos: Vec3,
-    cam_look_at_pos: Vec3,
-    cam_up: Vec3,
-    vertical_fov: f32,
+    object_transform: &ObjectTransform,
+    camera_info: &CameraInfo,
+    projection_info: &ProjectionInfo,
     aspect_ratio: f32,
-    near: f32,
-    far: f32,
 ) -> wgpu::Buffer {
     let transform_uniform = transform::create_mvp_uniform_identity(
-        cam_pos,
-        cam_look_at_pos,
-        cam_up,
-        vertical_fov,
+        object_transform.translation,
+        object_transform.rotation,
+        object_transform.scale,
+        camera_info.position,
+        camera_info.look_at,
+        camera_info.up,
+        camera_info.fov,
         aspect_ratio,
-        near,
-        far,
+        projection_info.near,
+        projection_info.far,
     );
 
     let descriptor = wgpu::util::BufferInitDescriptor {

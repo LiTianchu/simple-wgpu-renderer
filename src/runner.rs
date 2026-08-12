@@ -1,4 +1,5 @@
 use crate::ds::screen::Screen;
+use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::{model::Model, wgpu_resource::RendererState};
 use crate::render::{render_pass, render_payload};
 use crate::utils::render_setup_factory;
@@ -267,10 +268,29 @@ impl ApplicationHandler<AppState> for App {
                 let depth_attachment_texture: wgpu::Texture =
                     device.create_texture(&depth_attachment_texture_descriptor);
 
+                let object_transform = ObjectTransform::default();
+
+                let camera_info = CameraInfo {
+                    position: glam::Vec3::new(5.0, 5.0, 5.0),
+                    look_at: glam::Vec3::new(0.0, 0.0, 0.0),
+                    up: glam::Vec3::new(0.0, 1.0, 0.0),
+                    fov: 45.0,
+                };
+
+                let projection_info = ProjectionInfo {
+                    near: 1.0,
+                    far: 1000.0,
+                };
+
                 let render_payload = render_payload::create_initial_render_payload(
                     device,
                     current_model,
                     &renderer_state.bind_group_layouts,
+                    &object_transform,
+                    &camera_info,
+                    &projection_info,
+                    output_width,
+                    output_height,
                 );
 
                 match state.render(

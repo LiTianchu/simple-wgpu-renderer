@@ -1,5 +1,9 @@
 use crate::{
-    ds::{model::Model, wgpu_resource::BindGroupLayoutState},
+    ds::{
+        model::Model,
+        transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
+        wgpu_resource::BindGroupLayoutState,
+    },
     utils::buffer_factory,
 };
 use glam::Vec3;
@@ -13,10 +17,15 @@ pub struct RenderPayload {
 
 pub fn create_initial_render_payload(
     device: &wgpu::Device,
-    initial_model: &Model,
+    model: &Model,
     bind_group_layouts: &BindGroupLayoutState,
+    object_transform: &ObjectTransform,
+    camera_info: &CameraInfo,
+    projection_info: &ProjectionInfo,
+    render_width: u32,
+    render_height: u32,
 ) -> RenderPayload {
-    let vertices_slice = initial_model.mesh().verts();
+    let vertices_slice = model.mesh().verts();
 
     let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
         label: Some("Vertex Buffer"),
@@ -26,7 +35,7 @@ pub fn create_initial_render_payload(
 
     let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
 
-    let face_slice: &[u8] = bytemuck::cast_slice(initial_model.mesh().faces());
+    let face_slice: &[u8] = bytemuck::cast_slice(model.mesh().faces());
     let index_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
         label: Some("Index Buffer"),
         contents: face_slice,
@@ -37,25 +46,10 @@ pub fn create_initial_render_payload(
 
     let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
         &device,
-        Vec3 {
-            x: 5.0,
-            y: 5.0,
-            z: 5.0,
-        },
-        Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        },
-        Vec3 {
-            x: 0.0,
-            y: 1.0,
-            z: 0.0,
-        },
-        30.0,
-        1.0,
-        1.0,
-        1000.0,
+        object_transform,
+        camera_info,
+        projection_info,
+        render_width as f32 / render_height as f32,
     );
 
     let light_uniform_buffer = buffer_factory::create_light_uniform_buffer(

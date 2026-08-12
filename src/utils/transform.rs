@@ -1,7 +1,10 @@
 use crate::ds::model::TransformUniform;
-use glam::{Mat4, Vec3, camera};
+use glam::{Vec3, camera};
 
 pub fn create_mvp_uniform_identity(
+    translation: Vec3,
+    rotation: glam::Quat,
+    scale: Vec3,
     cam_pos: Vec3,
     cam_look_at_pos: Vec3,
     cam_up: Vec3,
@@ -10,7 +13,7 @@ pub fn create_mvp_uniform_identity(
     near: f32,
     far: f32,
 ) -> TransformUniform {
-    let model = Mat4::IDENTITY;
+    let model = glam::Mat4::from_scale_rotation_translation(scale, rotation, translation);
     let view = camera::rh::view::look_at_mat4(cam_pos, cam_look_at_pos, cam_up);
 
     // WGPU uses Direct X / WebGPU standard for NDC
