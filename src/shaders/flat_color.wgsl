@@ -25,8 +25,7 @@ var<uniform> material: MaterialUniforms;
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
-    @location(2) normal: vec3<f32>
-};
+    @location(2) normal: vec3<f32>};
 
 struct V2F {
     @builtin(position) clip_position: vec4<f32>,
@@ -60,7 +59,7 @@ fn fs_main(interp: V2F, @builtin(front_facing) is_front_facing: bool) -> @locati
         normal = -normal;
     }
 
-    let light_intensity = max(dot(normal, normalize(light.wc_light_direction)),0.0);
+    let light_intensity = max(dot(normal, normalize(light.wc_light_direction)), 0.0);
 
     // assume base color is packed in big-endian RGBA format
     let r = f32((material.base_color >> 24) & 0xFF) / 255.0;
