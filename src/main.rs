@@ -41,7 +41,7 @@ fn main() -> anyhow::Result<()> {
 
     if window_mode {
         #[cfg(target_arch = "wasm32")]
-        run_web().expect("Failed to run the application in web mode");
+        run_web(loaded_model).expect("Failed to run the application in web mode");
 
         #[cfg(not(target_arch = "wasm32"))]
         run(loaded_model).expect("Failed to run the application");

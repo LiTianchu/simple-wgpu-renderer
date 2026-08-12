@@ -130,14 +130,14 @@ impl AppState {
 
 pub struct App {
     #[cfg(target_arch = "wasm32")]
-    proxy: Option<winit::event_loop::EventLoopProxy<State>>,
+    proxy: Option<winit::event_loop::EventLoopProxy<AppState>>,
     state: Option<AppState>,
     model_list: Vec<Model>,
 }
 
 impl App {
     pub fn new(
-        #[cfg(target_arch = "wasm32")] event_loop: &EventLoop<State>,
+        #[cfg(target_arch = "wasm32")] event_loop: &EventLoop<AppState>,
         initial_model: Model,
     ) -> Self {
         #[cfg(target_arch = "wasm32")]
@@ -194,7 +194,7 @@ impl ApplicationHandler<AppState> for App {
                     assert!(
                         proxy
                             .send_event(
-                                State::new(window)
+                                AppState::new(window)
                                     .await
                                     .expect("Unable to create canvas!!!")
                             )
@@ -337,7 +337,7 @@ pub fn run(initial_model: Model) -> anyhow::Result<()> {
     }
     #[cfg(target_arch = "wasm32")]
     {
-        let app = App::new(&event_loop);
+        let app = App::new(&event_loop, initial_model);
         event_loop.spawn_app(app);
     }
 
@@ -346,9 +346,9 @@ pub fn run(initial_model: Model) -> anyhow::Result<()> {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(start)]
-pub fn run_web() -> Result<(), wasm_bindgen::JsValue> {
+pub fn run_web(initial_model: Model) -> Result<(), wasm_bindgen::JsValue> {
     console_error_panic_hook::set_once();
-    run().unwrap_throw();
+    run(initial_model).unwrap_throw();
 
     Ok(())
 }

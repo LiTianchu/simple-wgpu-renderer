@@ -5,8 +5,8 @@ pub async fn create_render_pipeline_raster(
     device: &wgpu::Device,
     texture_format: &wgpu::TextureFormat,
     bind_group_layouts: &[Option<&wgpu::BindGroupLayout>],
-    initial_vert_shader_path: impl AsRef<Path>,
-    initial_frag_shader_path: impl AsRef<Path>,
+    vert_shader_path: impl AsRef<Path>,
+    frag_shader_path: impl AsRef<Path>,
 ) -> anyhow::Result<wgpu::RenderPipeline> {
     let pipeline_layout_descriptor = wgpu::PipelineLayoutDescriptor {
         label: Some("Image Export Pipeline Layout"),
@@ -16,7 +16,7 @@ pub async fn create_render_pipeline_raster(
 
     let pipeline_layout = device.create_pipeline_layout(&pipeline_layout_descriptor);
 
-    let vertex_shader_path_ref = initial_vert_shader_path.as_ref();
+    let vertex_shader_path_ref = vert_shader_path.as_ref();
     let vertex_shader_source: String =
         std::fs::read_to_string(vertex_shader_path_ref).expect(&format!(
             "Vertex shader path {:?} is invalid!",
@@ -35,7 +35,7 @@ pub async fn create_render_pipeline_raster(
         buffers: &[Some(Vertex::BUFFER_LAYOUT)],
     };
 
-    let frag_shader_path_ref = initial_frag_shader_path.as_ref();
+    let frag_shader_path_ref = frag_shader_path.as_ref();
     let fragment_shader_source = std::fs::read_to_string(frag_shader_path_ref).expect(&format!(
         "Fragment shader path {:?} is invalid!",
         frag_shader_path_ref
