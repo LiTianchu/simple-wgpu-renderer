@@ -244,7 +244,7 @@ impl ApplicationHandler<AppState> for App {
 
                 let current_model = &mut self.model_list[0]; // TODO: Unsafe, for temporary testing
 
-                let vertices_slice = current_model.mesh().positions();
+                let vertices_slice = current_model.mesh().verts();
                 let faces_slice = current_model.mesh().faces();
                 let output_width = surface_state.config.width;
                 let output_height = surface_state.config.height;

@@ -5,22 +5,54 @@ pub struct Vertex {
     pos_x: f32,
     pos_y: f32,
     pos_z: f32,
+    uv_x: f32,
+    uv_y: f32,
+    norm_x: f32,
+    norm_y: f32,
+    norm_z: f32,
 }
 
 impl Vertex {
-    pub fn new(pos_x: f32, pos_y: f32, pos_z: f32) -> Self {
+    pub fn new() -> Self {
         Self {
-            pos_x,
-            pos_y,
-            pos_z,
+            pos_x: Default::default(),
+            pos_y: Default::default(),
+            pos_z: Default::default(),
+            uv_x: Default::default(),
+            uv_y: Default::default(),
+            norm_x: Default::default(),
+            norm_y: Default::default(),
+            norm_z: Default::default(),
         }
+    }
+
+    pub fn with_position(mut self, pos_x: f32, pos_y: f32, pos_z: f32) -> Self {
+        self.pos_x = pos_x;
+        self.pos_y = pos_y;
+        self.pos_z = pos_z;
+        self
+    }
+
+    pub fn with_uv(mut self, uv_x: f32, uv_y: f32) -> Self {
+        self.uv_x = uv_x;
+        self.uv_y = uv_y;
+        self
+    }
+
+    pub fn with_normal(mut self, norm_x: f32, norm_y: f32, norm_z: f32) -> Self {
+        self.norm_x = norm_x;
+        self.norm_y = norm_y;
+        self.norm_z = norm_z;
+        self
     }
 
     pub const BUFFER_LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
         array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &wgpu::vertex_attr_array![
-            0=>Float32x3
+            0=>Float32x3,
+            1=>Float32x2,
+            2=>Float32x3
         ],
     };
 }
@@ -45,31 +77,27 @@ impl Face {
 
 #[derive(Debug, Clone)]
 pub struct Mesh {
-    positions: Vec<Vertex>,
+    verts: Vec<Vertex>,
     faces: Vec<Face>,
 }
 
 impl Mesh {
     pub fn new() -> Self {
         Self {
-            positions: Vec::new(),
+            verts: Vec::new(),
             faces: Vec::new(),
         }
     }
-    pub fn positions(&self) -> &[Vertex] {
-        &self.positions
+    pub fn verts(&self) -> &[Vertex] {
+        &self.verts
     }
 
     pub fn faces(&self) -> &[Face] {
         &self.faces
     }
 
-    pub fn push_vert(&mut self, x: f32, y: f32, z: f32) {
-        self.positions.push(Vertex {
-            pos_x: x,
-            pos_y: y,
-            pos_z: z,
-        });
+    pub fn push_vert(&mut self, vert: Vertex) {
+        self.verts.push(vert);
     }
 
     pub fn push_face(&mut self, index_1: u32, index_2: u32, index_3: u32) {

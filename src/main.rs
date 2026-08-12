@@ -1,5 +1,5 @@
 use std::env;
-use wgpu_tutorial::ds::model::{Mesh, Model};
+use wgpu_tutorial::ds::model::{Mesh, Model, Vertex};
 use wgpu_tutorial::io::image_export;
 use wgpu_tutorial::runner::run;
 #[cfg(target_arch = "wasm32")]
@@ -10,6 +10,7 @@ const IMAGE_FILE_NAME: &str = "render";
 const IMAGE_FILE_FORMAT: &str = "png";
 const DEMO_VERT_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
 const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
+const DEFAULT_MODEL_PATH: &str = "./assets/obj/cube/cube.obj";
 
 fn load_model(path_str: impl Into<String>) -> Option<Model> {
     let mut loaded_model = Model::new();
@@ -87,11 +88,23 @@ fn load_model(path_str: impl Into<String>) -> Option<Model> {
         assert!(mesh.positions.len() % 3 == 0);
 
         for vtx in 0..mesh.positions.len() / 3 {
-            let vert_x = mesh.positions[3 * vtx];
-            let vert_y = mesh.positions[3 * vtx + 1];
-            let vert_z = mesh.positions[3 * vtx + 2];
+            let pos_x = mesh.positions.get(3 * vtx).copied().unwrap_or_default();
+            let pos_y = mesh.positions.get(3 * vtx + 1).copied().unwrap_or_default();
+            let pos_z = mesh.positions.get(3 * vtx + 2).copied().unwrap_or_default();
 
-            loaded_model_mesh.push_vert(vert_x, vert_y, vert_z);
+            let uv_x = mesh.texcoords.get(3 * vtx).copied().unwrap_or_default();
+            let uv_y = mesh.texcoords.get(3 * vtx + 1).copied().unwrap_or_default();
+
+            let norm_x = mesh.normals.get(3 * vtx).copied().unwrap_or_default();
+            let norm_y = mesh.normals.get(3 * vtx + 1).copied().unwrap_or_default();
+            let norm_z = mesh.normals.get(3 * vtx + 2).copied().unwrap_or_default();
+
+            let vertex = Vertex::new()
+                .with_position(pos_x, pos_y, pos_z)
+                .with_uv(uv_x, uv_y)
+                .with_normal(norm_x, norm_y, norm_z);
+
+            loaded_model_mesh.push_vert(vertex);
 
             // println!(
             //     "              position[{}] = ({}, {}, {})",
@@ -173,7 +186,7 @@ fn main() -> anyhow::Result<()> {
     let arg_len = arg_list.len();
 
     let mut window_mode = false;
-    let mut model_path = "./assets/obj/cube/cube.obj".to_string();
+    let mut model_path = DEFAULT_MODEL_PATH.to_string();
 
     let loaded_model: Model;
     for i in 0..arg_len {
@@ -214,14 +227,14 @@ fn main() -> anyhow::Result<()> {
 
         println!(
             "Num Vertices: {}, Num Faces: {}",
-            loaded_model.mesh().positions().len(),
+            loaded_model.mesh().verts().len(),
             loaded_model.mesh().faces().len()
         );
         pollster::block_on(image_export::render_image(
             image_export_dir,
             IMAGE_FILE_NAME,
             IMAGE_FILE_FORMAT,
-            loaded_model.mesh().positions(),
+            loaded_model.mesh().verts(),
             loaded_model.mesh().faces(),
             DEMO_VERT_SHADER_PATH,
             DEMO_FRAG_SHADER_PATH,

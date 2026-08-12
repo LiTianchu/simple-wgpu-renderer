@@ -83,7 +83,7 @@ pub async fn render_image(
 
     let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
         &device,
-        [149, 191, 201, 255], // red color
+        [149, 191, 201, 255], // #95bfc9 green-blueish white
     );
 
     let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
