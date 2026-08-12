@@ -68,15 +68,11 @@ impl AppState {
 
     pub fn render(
         &mut self,
-        transform_bind_group: &wgpu::BindGroup,
-        mat_light_bind_group: &wgpu::BindGroup,
-        vertex_buffer: &wgpu::Buffer,
-        index_buffer: &wgpu::Buffer,
+        render_payload: &render_payload::RenderPayload,
         draw_indices: core::ops::Range<u32>,
         depth_attachment_texture: &wgpu::Texture,
     ) -> anyhow::Result<()> {
         self.window.request_redraw();
-
         if !self
             .renderer_state
             .wgpu_object
@@ -87,6 +83,11 @@ impl AppState {
         {
             return Ok(());
         }
+
+        let transform_bind_group: &wgpu::BindGroup = &render_payload.transform_bind_group;
+        let mat_light_bind_group: &wgpu::BindGroup = &render_payload.mat_light_bind_group;
+        let vertex_buffer: &wgpu::Buffer = &render_payload.vertex_buffer;
+        let index_buffer: &wgpu::Buffer = &render_payload.index_buffer;
 
         let wgpu_obj = &mut self.renderer_state.wgpu_object;
         let render_pipeline = &self.renderer_state.render_pipeline;
@@ -273,10 +274,7 @@ impl ApplicationHandler<AppState> for App {
                 );
 
                 match state.render(
-                    &render_payload.transform_bind_group,
-                    &render_payload.mat_light_bind_group,
-                    &render_payload.vertex_buffer,
-                    &render_payload.index_buffer,
+                    &render_payload,
                     0..(face_len * 3) as u32,
                     &depth_attachment_texture,
                 ) {
