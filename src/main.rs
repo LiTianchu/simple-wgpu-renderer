@@ -3,9 +3,6 @@ use wgpu_tutorial::ds::model::Model;
 use wgpu_tutorial::io::{image_exporter, model_loader};
 use wgpu_tutorial::runner::run;
 
-#[cfg(target_arch = "wasm32")]
-use wgpu_tutorial::runner::run_web;
-
 const IMAGE_EXPORT_DIR: &str = "./output";
 const IMAGE_FILE_NAME: &str = "render";
 const IMAGE_FILE_FORMAT: &str = "png";
@@ -40,10 +37,6 @@ fn main() -> anyhow::Result<()> {
         .expect(&format!("No model loaded at path: {}", &model_path));
 
     if window_mode {
-        #[cfg(target_arch = "wasm32")]
-        run_web(loaded_model).expect("Failed to run the application in web mode");
-
-        #[cfg(not(target_arch = "wasm32"))]
         run(loaded_model).expect("Failed to run the application");
         Ok(())
     } else {
