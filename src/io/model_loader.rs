@@ -46,33 +46,19 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
             let end = next_face + 3;
 
             let face_indices = &mesh.indices[next_face..end];
-            // println!(" face[{}].indices          = {:?}", face, face_indices);
 
             loaded_model_mesh.push_face(face_indices[0], face_indices[1], face_indices[2]);
 
             if !mesh.texcoord_indices.is_empty() {
                 let _texcoord_face_indices = &mesh.texcoord_indices[next_face..end];
-                // println!(
-                //     " face[{}].texcoord_indices = {:?}",
-                //     face, texcoord_face_indices
-                // );
             }
             if !mesh.normal_indices.is_empty() {
                 let _normal_face_indices = &mesh.normal_indices[next_face..end];
-                // println!(
-                //     " face[{}].normal_indices   = {:?}",
-                //     face, normal_face_indices
-                // );
             }
 
             next_face = end;
         }
 
-        // println!(
-        //     "model[{}].positions        = {}",
-        //     i,
-        //     mesh.positions.len() / 3
-        // );
         assert!(mesh.positions.len() % 3 == 0);
 
         for vtx in 0..mesh.positions.len() / 3 {
@@ -93,11 +79,6 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
                 .with_normal(norm_x, norm_y, norm_z);
 
             loaded_model_mesh.push_vert(vertex);
-
-            // println!(
-            //     "              position[{}] = ({}, {}, {})",
-            //     vtx, vert_x, vert_y, vert_z
-            // );
         }
     }
 

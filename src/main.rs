@@ -1,7 +1,7 @@
+use my_renderer::ds::model::Model;
+use my_renderer::io::{image_exporter, model_loader};
+use my_renderer::runner::run;
 use std::env;
-use wgpu_tutorial::ds::model::Model;
-use wgpu_tutorial::io::{image_exporter, model_loader};
-use wgpu_tutorial::runner::run;
 
 const IMAGE_EXPORT_DIR: &str = "./output";
 const IMAGE_FILE_NAME: &str = "render";

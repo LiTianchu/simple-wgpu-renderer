@@ -1223,6 +1223,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "my-renderer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "env_logger",
+ "glam",
+ "gltf",
+ "image",
+ "log",
+ "pollster",
+ "tobj",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "naga"
 version = "30.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3004,23 +3021,6 @@ checksum = "c9eaac644e5008925c78567d272b9d66ef83da55a53cc17fc7daade7bb6e66e5"
 dependencies = [
  "naga",
  "wgpu-types",
-]
-
-[[package]]
-name = "wgpu-tutorial"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "env_logger",
- "glam",
- "gltf",
- "image",
- "log",
- "pollster",
- "tobj",
- "wgpu",
- "winit",
 ]
 
 [[package]]
