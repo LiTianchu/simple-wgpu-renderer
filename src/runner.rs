@@ -2,6 +2,7 @@ use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::viewer::{EguiFrame, Screen, ViewerState};
 use crate::ds::{model::Model, wgpu_resource::RendererState};
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
+use glam::Vec3;
 use std::sync::Arc;
 
 use winit::dpi::PhysicalSize;
@@ -73,7 +74,11 @@ impl AppState {
         // ========= End EGUI Setup =========
 
         let viewer_state = ViewerState {
-            rotation_euler: glam::Vec3::new(0.0, 0.0, 0.0),
+            model_rotation_euler_deg: glam::Vec3::new(0.0, 0.0, 0.0),
+            model_scale_uniform: 1.0,
+            cam_elevation_deg: 45.0,
+            cam_radius: 5.0,
+            cam_fov_deg: 45.0,
         };
 
         Ok(Self {
@@ -176,13 +181,43 @@ impl AppState {
         let raw_input = self.egui_winit.take_egui_input(&self.window);
 
         let output: egui::FullOutput = self.egui_ctx.run_ui(raw_input, |ui| {
-            ui.heading("My Renderer");
+            ui.heading("Renderer Controls");
             ui.add(
                 egui::Slider::new(
-                    &mut self.viewer_state.rotation_euler.y,
-                    0.0..=std::f32::consts::TAU,
+                    &mut self.viewer_state.model_rotation_euler_deg.x,
+                    0.0..=360.0,
                 )
-                .text("Rotation Y"),
+                .text("Model Rotation X"),
+            );
+            ui.add(
+                egui::Slider::new(
+                    &mut self.viewer_state.model_rotation_euler_deg.y,
+                    0.0..=360.0,
+                )
+                .text("Model Rotation Y"),
+            );
+            ui.add(
+                egui::Slider::new(
+                    &mut self.viewer_state.model_rotation_euler_deg.z,
+                    0.0..=360.0,
+                )
+                .text("Model Rotation Z"),
+            );
+            ui.add(
+                egui::Slider::new(&mut self.viewer_state.model_scale_uniform, 0.0..=10.0)
+                    .text("Model Uniform Scale"),
+            );
+            ui.add(
+                egui::Slider::new(&mut self.viewer_state.cam_elevation_deg, -90.0..=90.0)
+                    .text("Camera Elevation Angle"),
+            );
+            ui.add(
+                egui::Slider::new(&mut self.viewer_state.cam_radius, 0.01..=20.0)
+                    .text("Camera Orbit Radius"),
+            );
+            ui.add(
+                egui::Slider::new(&mut self.viewer_state.cam_fov_deg, 0.01..=120.0)
+                    .text("Camera Field of View (FOV)"),
             );
         });
 
@@ -334,19 +369,29 @@ impl ApplicationHandler<AppState> for App {
                     device.create_texture(&depth_attachment_texture_descriptor);
 
                 let mut object_transform = ObjectTransform::default();
-                object_transform.set_rotation_euler(state.viewer_state.rotation_euler);
 
+                object_transform.set_rotation_euler(
+                    state
+                        .viewer_state
+                        .model_rotation_euler_deg
+                        .map(|deg| deg.to_radians()),
+                );
+
+                object_transform.set_scale_uniform(state.viewer_state.model_scale_uniform);
+
+                // y = radius * sin(elevation)
                 let camera_info = CameraInfo {
-                    position: glam::Vec3::new(5.0, 5.0, 5.0),
-                    look_at: glam::Vec3::new(0.0, 0.0, 0.0),
-                    up: glam::Vec3::new(0.0, 1.0, 0.0),
-                    fov: 45.0,
+                    fov: state.viewer_state.cam_fov_deg.to_radians(),
+                    position: Vec3::new(
+                        0.0,
+                        state.viewer_state.cam_radius
+                            * state.viewer_state.cam_elevation_deg.to_radians().sin(),
+                        state.viewer_state.cam_radius,
+                    ),
+                    ..Default::default()
                 };
 
-                let projection_info = ProjectionInfo {
-                    near: 1.0,
-                    far: 1000.0,
-                };
+                let projection_info = ProjectionInfo::default();
 
                 let render_payload = render_payload::create_standard_render_payload(
                     device,

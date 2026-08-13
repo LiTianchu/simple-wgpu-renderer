@@ -7,7 +7,11 @@ pub struct Screen {
 }
 
 pub struct ViewerState {
-    pub rotation_euler: glam::Vec3,
+    pub model_rotation_euler_deg: glam::Vec3,
+    pub model_scale_uniform: f32,
+    pub cam_elevation_deg: f32,
+    pub cam_radius: f32,
+    pub cam_fov_deg: f32,
 }
 
 pub struct EguiFrame {

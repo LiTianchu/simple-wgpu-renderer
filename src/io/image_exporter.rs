@@ -92,7 +92,7 @@ pub async fn render_image(
         position: glam::Vec3::new(5.0, 5.0, 5.0),
         look_at: glam::Vec3::new(0.0, 0.0, 0.0),
         up: glam::Vec3::new(0.0, 1.0, 0.0),
-        fov: 45.0,
+        fov: 45.0_f32.to_radians(),
     };
 
     let projection_info = ProjectionInfo {
