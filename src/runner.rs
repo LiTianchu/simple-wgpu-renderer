@@ -16,6 +16,7 @@ use winit::{
 
 const DEMO_VERT_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
 const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
+const WINDOW_PHYSICAL_SIZE: PhysicalSize<u32> = PhysicalSize::new(1280, 800);
 
 pub struct AppState {
     window: Arc<Window>,
@@ -241,7 +242,7 @@ impl ApplicationHandler<AppState> for App {
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes()
             .with_title("My Renderer")
-            .with_inner_size(PhysicalSize::new(1920, 1080));
+            .with_inner_size(WINDOW_PHYSICAL_SIZE);
 
         let window = Arc::new(
             event_loop
