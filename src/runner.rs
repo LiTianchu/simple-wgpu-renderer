@@ -349,7 +349,7 @@ impl ApplicationHandler<AppState> for App {
                     far: 1000.0,
                 };
 
-                let render_payload = render_payload::create_initial_render_payload(
+                let render_payload = render_payload::create_standard_render_payload(
                     device,
                     current_model,
                     bind_group_layouts,

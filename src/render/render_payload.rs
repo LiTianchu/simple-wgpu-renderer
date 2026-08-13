@@ -15,7 +15,7 @@ pub struct RenderPayload {
     pub mat_light_bind_group: wgpu::BindGroup,
 }
 
-pub fn create_initial_render_payload(
+pub fn create_standard_render_payload(
     device: &wgpu::Device,
     model: &Model,
     bind_group_layouts: &BindGroupLayoutState,

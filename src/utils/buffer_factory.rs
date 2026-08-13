@@ -13,7 +13,7 @@ pub fn create_mvp_uniform_buffer(
     projection_info: &ProjectionInfo,
     aspect_ratio: f32,
 ) -> wgpu::Buffer {
-    let transform_uniform = transform::create_mvp_uniform_identity(
+    let transform_uniform = transform::create_mvp_uniform(
         object_transform.translation,
         object_transform.rotation,
         object_transform.scale,

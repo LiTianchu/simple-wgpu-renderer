@@ -9,6 +9,8 @@ const IMAGE_FILE_FORMAT: &str = "png";
 const DEMO_VERT_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
 const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
 const DEFAULT_MODEL_PATH: &str = "./assets/obj/cube/cube.obj";
+const IMAGE_EXPORT_WIDTH: u32 = 1280;
+const IMAGE_EXPORT_HEIGHT: u32 = 800;
 
 fn main() -> anyhow::Result<()> {
     let arg_list: Vec<String> = env::args().collect();
@@ -62,8 +64,8 @@ fn main() -> anyhow::Result<()> {
             IMAGE_FILE_FORMAT,
             DEMO_VERT_SHADER_PATH,
             DEMO_FRAG_SHADER_PATH,
-            500,
-            500,
+            IMAGE_EXPORT_WIDTH,
+            IMAGE_EXPORT_HEIGHT,
         ))?;
         Ok(())
     }

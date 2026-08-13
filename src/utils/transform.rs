@@ -1,7 +1,7 @@
 use crate::ds::model::TransformUniform;
 use glam::{Vec3, camera};
 
-pub fn create_mvp_uniform_identity(
+pub fn create_mvp_uniform(
     translation: Vec3,
     rotation: glam::Quat,
     scale: Vec3,

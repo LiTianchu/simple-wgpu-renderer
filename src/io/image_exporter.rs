@@ -100,7 +100,7 @@ pub async fn render_image(
         far: 1000.0,
     };
 
-    let render_payload = render_payload::create_initial_render_payload(
+    let render_payload = render_payload::create_standard_render_payload(
         &device,
         model,
         &renderer_state.bind_group_layouts,
