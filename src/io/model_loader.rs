@@ -83,12 +83,15 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
     }
 
     for (i, m) in materials.iter().enumerate() {
-        let ambient = m.ambient.unwrap_or([0.0, 0.0, 0.0]);
-        let diffuse = m.diffuse.unwrap_or([0.0, 0.0, 0.0]);
-        let specular = m.specular.unwrap_or([0.0, 0.0, 0.0]);
-
-        let shininess = m.shininess.unwrap_or_default();
-        let dissolve = m.dissolve.unwrap_or_default();
+        // material properties, the default here uses Blender's default standard
+        let ambient = m.ambient.unwrap_or([1.0, 1.0, 1.0]); // ka (legacy field, can ignore)
+        let diffuse = m.diffuse.unwrap_or([0.8, 0.8, 0.8]); // kd (base color)
+        let specular = m.specular.unwrap_or([0.5, 0.5, 0.5]); //ks
+        let emissive = m.emissive.unwrap_or([0.0, 0.0, 0.0]); // ke
+        let optical_density = m.optical_density.unwrap_or(1.45); // Ni (index of refraction), 1.0 means the light does not bend when entering the object
+        let shininess = m.shininess.unwrap_or(225.0); // Ns, ranges from 0 to 1000
+        let dissolve = m.dissolve.unwrap_or(1.0); // d, 1.0 means opaque, 0 means fully transparent
+        let illumination_model = m.illumination_model.unwrap_or(2); // illumintation, 2 means ambient + diffuse + specular
 
         let ambient_texture_str = m
             .ambient_texture
@@ -133,8 +136,14 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
             "    material.Ks = ({}, {}, {})",
             specular[0], specular[1], specular[2]
         );
+        println!(
+            "    mterial.Ke = ({}, {}, {})",
+            emissive[0], emissive[1], emissive[2]
+        );
         println!("    material.Ns = {}", &shininess);
         println!("    material.d = {}", &dissolve);
+        println!("    mterial.Ni = {}", &optical_density);
+        println!("    mterial.illum = {}", &illumination_model);
         println!("    material.map_Ka = {}", &ambient_texture_str);
         println!("    material.map_Kd = {}", &diffuse_texture_str);
         println!("    material.map_Ks = {}", &specular_texture_str);
