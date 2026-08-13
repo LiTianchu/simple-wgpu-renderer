@@ -311,7 +311,7 @@ impl ApplicationHandler<AppState> for App {
                 let bind_group_layouts = &renderer_state.bind_group_layouts;
                 let device = &mut wgpu_obj.device;
 
-                let face_len = current_model.mesh().faces().len();
+                let face_len = current_model.face_count();
                 let output_width = surface_state.config.width;
                 let output_height = surface_state.config.height;
 

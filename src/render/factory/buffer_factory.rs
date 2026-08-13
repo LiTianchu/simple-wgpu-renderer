@@ -1,7 +1,7 @@
 use crate::{
     ds::{
-        model::{LightUniform, MaterialUniform},
         transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
+        uniform::{LightUniform, MaterialUniform},
     },
     render::factory::uniform_factory,
 };

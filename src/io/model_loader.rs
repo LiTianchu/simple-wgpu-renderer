@@ -1,9 +1,11 @@
-use crate::ds::model::{Mesh, Model, Vertex};
+use crate::ds::model::{Material, MaterialAttributeSet, Mesh, Model, TextureSet, Vertex};
 
 pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
     let mut loaded_model = Model::new();
 
-    let obj_load_options = tobj::LoadOptions::default();
+    let obj_load_options = tobj::LoadOptions {
+        ..Default::default()
+    };
 
     let (models, materials) = tobj::load_obj(&path_str.into(), &obj_load_options).ok()?;
 
@@ -31,11 +33,15 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
         println!("Num faces: {}", num_faces);
 
         if num_faces == 0 {
-            eprintln!("Failed to parse model data. Face count is 0!");
+            println!(
+                "Face count of mesh {} of {} is 0! This mesh will be empty!",
+                i, m.name
+            );
         }
 
         let mut next_face = 0;
-        let loaded_model_mesh: &mut Mesh = loaded_model.mesh_mut();
+        // let loaded_model_mesh: &mut Mesh = loaded_model.mesh_mut();
+        let mut loaded_model_mesh = Mesh::new();
 
         for face in 0..num_faces {
             if mesh.face_arities.len() > 0 && mesh.face_arities[face] as usize != 3 {
@@ -60,6 +66,8 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
         }
 
         assert!(mesh.positions.len() % 3 == 0);
+        let mat_id = mesh.material_id.unwrap_or(0);
+        loaded_model_mesh.set_mat_id(mat_id);
 
         for vtx in 0..mesh.positions.len() / 3 {
             let pos_x = mesh.positions.get(3 * vtx).copied().unwrap_or_default();
@@ -80,6 +88,8 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
 
             loaded_model_mesh.push_vert(vertex);
         }
+
+        loaded_model.push_mesh(loaded_model_mesh);
     }
 
     for (i, m) in materials.iter().enumerate() {
@@ -93,35 +103,38 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
         let dissolve = m.dissolve.unwrap_or(1.0); // d, 1.0 means opaque, 0 means fully transparent
         let illumination_model = m.illumination_model.unwrap_or(2); // illumintation, 2 means ambient + diffuse + specular
 
-        let ambient_texture_str = m
-            .ambient_texture
-            .clone()
-            .unwrap_or("No ambient texture (map_Ka) found".to_string());
+        let ambient_texture = m.ambient_texture.clone();
 
-        let diffuse_texture_str = m
-            .diffuse_texture
-            .clone()
-            .unwrap_or("No diffuse texture (map_Kd) found".to_string());
+        let diffuse_texture = m.diffuse_texture.clone();
 
-        let specular_texture_str = m
-            .specular_texture
-            .clone()
-            .unwrap_or("No specular texture (map_Ks) found".to_string());
+        let specular_texture = m.specular_texture.clone();
 
-        let shininess_texture_str = m
-            .shininess_texture
-            .clone()
-            .unwrap_or("No shininess texture (map_Ns) found".to_string());
+        let shininess_texture = m.shininess_texture.clone();
 
-        let dissolve_texture_str = m
-            .dissolve_texture
-            .clone()
-            .unwrap_or("No dissolve texture (map_d) found".to_string());
+        let dissolve_texture = m.dissolve_texture.clone();
 
-        let normal_texture_str = m
-            .normal_texture
-            .clone()
-            .unwrap_or("No normal texture (map_Bump) found".to_string());
+        let normal_texture = m.normal_texture.clone();
+
+        let material = Material {
+            mat_attr: MaterialAttributeSet {
+                k_ambient: ambient,
+                k_diffuse: diffuse,
+                k_specular: specular,
+                k_emissive: emissive,
+                index_of_refraction: optical_density,
+                shininess,
+                dissolve,
+                illumination_model: illumination_model as u32,
+            },
+            texture_set: TextureSet {
+                ambient_map_path: ambient_texture.clone(),
+                diffuse_map_path: diffuse_texture.clone(),
+                specular_map_path: specular_texture.clone(),
+                shininess_map_path: shininess_texture.clone(),
+                dissolve_map_path: dissolve_texture.clone(),
+                normal_map_path: normal_texture.clone(),
+            },
+        };
 
         println!("material[{}].name = \'{}\'", i, m.name);
         println!(
@@ -144,16 +157,36 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
         println!("    material.d = {}", &dissolve);
         println!("    mterial.Ni = {}", &optical_density);
         println!("    mterial.illum = {}", &illumination_model);
-        println!("    material.map_Ka = {}", &ambient_texture_str);
-        println!("    material.map_Kd = {}", &diffuse_texture_str);
-        println!("    material.map_Ks = {}", &specular_texture_str);
-        println!("    material.map_Ns = {}", &shininess_texture_str);
-        println!("    material.map_Bump = {}", &normal_texture_str);
-        println!("    material.map_d = {}", &dissolve_texture_str);
+        println!(
+            "    material.map_Ka = {}",
+            &ambient_texture.unwrap_or("No ambient texture found".to_string())
+        );
+        println!(
+            "    material.map_Kd = {}",
+            &diffuse_texture.unwrap_or("No diffuse texture found".to_string())
+        );
+        println!(
+            "    material.map_Ks = {}",
+            &specular_texture.unwrap_or("No specular texture found".to_string())
+        );
+        println!(
+            "    material.map_Ns = {}",
+            &shininess_texture.unwrap_or("No shininess texture found".to_string())
+        );
+        println!(
+            "    material.map_Bump = {}",
+            &normal_texture.unwrap_or("No normal texture found".to_string())
+        );
+        println!(
+            "    material.map_d = {}",
+            &dissolve_texture.unwrap_or("No dissolve texture found".to_string())
+        );
 
         for (k, v) in &m.unknown_param {
             println!("    material.{} = {}", k, v);
         }
+
+        loaded_model.push_material(material);
     }
 
     return Some(loaded_model);

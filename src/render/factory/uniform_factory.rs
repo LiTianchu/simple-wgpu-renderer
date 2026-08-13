@@ -1,4 +1,4 @@
-use crate::ds::model::TransformUniform;
+use crate::ds::uniform::TransformUniform;
 use glam::{Vec3, camera};
 
 pub fn create_mvp_uniform(

@@ -1,5 +1,5 @@
 use crate::ds::{
-    model::Model,
+    model::{Face, Model},
     transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
 };
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
@@ -111,7 +111,7 @@ pub async fn render_image(
         output_height,
     );
 
-    let faces = model.mesh().faces();
+    let faces: Vec<&Face> = model.all_faces_iter().collect();
 
     let submission_index: wgpu::SubmissionIndex = render_pass::render_to_output_buffer(
         &device,

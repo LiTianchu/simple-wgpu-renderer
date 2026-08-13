@@ -25,7 +25,8 @@ pub fn create_standard_render_payload(
     render_width: u32,
     render_height: u32,
 ) -> RenderPayload {
-    let vertices_slice = model.mesh().verts();
+    let vertices = model.all_verts_copied();
+    let vertices_slice = vertices.as_slice();
 
     let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
         label: Some("Vertex Buffer"),
@@ -35,7 +36,8 @@ pub fn create_standard_render_payload(
 
     let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
 
-    let face_slice: &[u8] = bytemuck::cast_slice(model.mesh().faces());
+    let faces = model.all_faces_copied();
+    let face_slice: &[u8] = bytemuck::cast_slice(faces.as_slice());
     let index_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
         label: Some("Index Buffer"),
         contents: face_slice,

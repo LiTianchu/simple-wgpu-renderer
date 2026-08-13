@@ -54,8 +54,8 @@ fn main() -> anyhow::Result<()> {
 
         println!(
             "Num Vertices: {}, Num Faces: {}",
-            loaded_model.mesh().verts().len(),
-            loaded_model.mesh().faces().len()
+            loaded_model.vert_count(),
+            loaded_model.face_count()
         );
         pollster::block_on(image_exporter::render_image(
             &loaded_model,
