@@ -1,8 +1,10 @@
-use crate::ds::{
-    model::{LightUniform, MaterialUniform},
-    transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
+use crate::{
+    ds::{
+        model::{LightUniform, MaterialUniform},
+        transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
+    },
+    render::factory::uniform_factory,
 };
-use crate::utils::transform;
 use glam::Vec3;
 use wgpu::util::DeviceExt;
 
@@ -13,7 +15,7 @@ pub fn create_mvp_uniform_buffer(
     projection_info: &ProjectionInfo,
     aspect_ratio: f32,
 ) -> wgpu::Buffer {
-    let transform_uniform = transform::create_mvp_uniform(
+    let transform_uniform = uniform_factory::create_mvp_uniform(
         object_transform.translation,
         object_transform.rotation,
         object_transform.scale,

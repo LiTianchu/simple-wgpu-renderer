@@ -1,8 +1,10 @@
-use crate::ds::{
-    screen::Screen,
-    wgpu_resource::{BindGroupLayoutState, RendererState, WgpuObject},
+use crate::{
+    ds::{
+        viewer::Screen,
+        wgpu_resource::{BindGroupLayoutState, RendererState, WgpuObject},
+    },
+    render::factory::render_pipeline_factory,
 };
-use crate::utils::render_pipeline_factory;
 use std::path::Path;
 
 pub async fn create_render_setup_raster_standard(

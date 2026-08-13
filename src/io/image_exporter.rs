@@ -2,8 +2,8 @@ use crate::ds::{
     model::Model,
     transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
 };
-use crate::render::{render_pass, render_payload};
-use crate::utils::{copying, render_setup_factory};
+use crate::render::{factory::render_setup_factory, render_pass, render_payload};
+use crate::utils::copying;
 use std::path::Path;
 
 const BYTES_PER_PIXEL: usize = 4;

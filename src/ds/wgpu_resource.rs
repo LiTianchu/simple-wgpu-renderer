@@ -1,4 +1,4 @@
-use crate::ds::screen::Screen;
+use crate::ds::viewer::Screen;
 
 #[derive(Debug)]
 pub struct WgpuObject {

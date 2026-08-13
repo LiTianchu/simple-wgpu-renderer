@@ -4,7 +4,7 @@ use crate::{
         transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
         wgpu_resource::BindGroupLayoutState,
     },
-    utils::buffer_factory,
+    render::factory::buffer_factory,
 };
 use glam::Vec3;
 use wgpu::util::DeviceExt;

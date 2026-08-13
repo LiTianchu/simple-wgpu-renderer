@@ -1,8 +1,7 @@
-use crate::ds::screen::{EguiFrame, Screen, ViewerState};
 use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
+use crate::ds::viewer::{EguiFrame, Screen, ViewerState};
 use crate::ds::{model::Model, wgpu_resource::RendererState};
-use crate::render::{render_pass, render_payload};
-use crate::utils::render_setup_factory;
+use crate::render::{factory::render_setup_factory, render_pass, render_payload};
 use std::sync::Arc;
 
 use winit::dpi::PhysicalSize;
