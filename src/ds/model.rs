@@ -322,9 +322,9 @@ impl TextureStore {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: wgpu::FilterMode::Nearest, // pixel art
-                min_filter: wgpu::FilterMode::Nearest, // pixel art
-                mipmap_filter: wgpu::MipmapFilterMode::Nearest, // pixel art
+                mag_filter: wgpu::FilterMode::Linear, // pixel art
+                min_filter: wgpu::FilterMode::Linear, // pixel art
+                mipmap_filter: wgpu::MipmapFilterMode::Linear, // pixel art
                 ..Default::default()
             });
             self.insert_texture(
