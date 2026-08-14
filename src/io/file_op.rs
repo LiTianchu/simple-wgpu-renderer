@@ -9,6 +9,7 @@ pub fn load_binary(file_path: impl Into<String>) -> anyhow::Result<Vec<u8>> {
     Ok(bytes)
 }
 
+// TODO: Make file type an hashset of file types
 pub fn get_files_by_type_recur(
     path_str: impl Into<String>,
     file_type: &str,
