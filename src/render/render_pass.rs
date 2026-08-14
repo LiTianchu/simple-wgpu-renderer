@@ -7,6 +7,7 @@ pub fn render_to_output_buffer(
     // Drawing Resources
     transform_bind_group: &wgpu::BindGroup,
     mat_light_bind_group: &wgpu::BindGroup,
+    texture_sampler_bind_group: Option<&wgpu::BindGroup>,
     vertex_buffer: &wgpu::Buffer,
     index_buffer: &wgpu::Buffer,
     draw_indices: std::ops::Range<u32>,
@@ -32,7 +33,7 @@ pub fn render_to_output_buffer(
         color_output_texture.create_view(&color_output_texture_view_descriptor);
 
     let command_encoder_descriptor = wgpu::CommandEncoderDescriptor {
-        label: Some("Command Encoder Descriptor"),
+        label: Some("Render to Output Buffer Command Encoder"),
     };
 
     let mut command_encoder: wgpu::CommandEncoder =
@@ -70,9 +71,16 @@ pub fn render_to_output_buffer(
             command_encoder.begin_render_pass(&render_pass_descriptor);
         render_pass.set_pipeline(&pipeline);
         render_pass.set_bind_group(0, transform_bind_group, &[]);
+        println!("Setting transform bind group");
         render_pass.set_bind_group(1, mat_light_bind_group, &[]);
+        println!("Setting transform and material-light bind groups");
+        if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
+            render_pass.set_bind_group(2, texture_sampler_bind_group, &[]);
+            println!("Setting texture sampler bind group");
+        }
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        println!("Drawing {} indices", draw_indices.len());
         render_pass.draw_indexed(draw_indices, 0, 0..1);
     }
 
@@ -113,6 +121,7 @@ pub fn render_to_screen(
     // Drawing resources
     transform_bind_group: &wgpu::BindGroup,
     mat_light_bind_group: &wgpu::BindGroup,
+    texture_sampler_bind_group: Option<&wgpu::BindGroup>,
     vertex_buffer: &wgpu::Buffer,
     index_buffer: &wgpu::Buffer,
     draw_indices: std::ops::Range<u32>,
@@ -191,9 +200,18 @@ pub fn render_to_screen(
 
         render_pass.set_pipeline(render_pipeline);
         render_pass.set_bind_group(0, transform_bind_group, &[]);
+        println!("Setting transform bind group");
         render_pass.set_bind_group(1, mat_light_bind_group, &[]);
+        println!("Setting transform and material-light bind groups");
+
+        if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
+            println!("Setting texture sampler bind group");
+            render_pass.set_bind_group(2, texture_sampler_bind_group, &[]);
+        }
+
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        println!("Drawing {} indices", draw_indices.len());
         render_pass.draw_indexed(draw_indices, 0, 0..1);
     }
 

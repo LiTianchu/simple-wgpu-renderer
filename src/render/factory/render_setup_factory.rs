@@ -27,7 +27,7 @@ pub async fn create_render_setup_raster_standard(
     };
 
     let transform_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
-        label: Some("Image Export Transform Bind Group Layout"),
+        label: Some("Transform Bind Group Layout"),
         entries: &[wgpu::BindGroupLayoutEntry {
             binding: 0, // transforms
             visibility: wgpu::ShaderStages::VERTEX,
@@ -41,7 +41,7 @@ pub async fn create_render_setup_raster_standard(
     };
 
     let mat_light_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
-        label: Some("Image Export Material-Light Bind Group Layout"),
+        label: Some("Material-Light Bind Group Layout"),
         entries: &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0, // light
@@ -66,6 +66,40 @@ pub async fn create_render_setup_raster_standard(
         ],
     };
 
+    let texture_sampler_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Texture-Sampler Bind Group Layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
+    };
+
+    let transform_bind_grp_layout = wgpu_state
+        .device
+        .create_bind_group_layout(&transform_bind_grp_layout_descriptor);
+
+    let mat_light_bind_grp_layout = wgpu_state
+        .device
+        .create_bind_group_layout(&mat_light_bind_grp_layout_descriptor);
+
+    let texture_sampler_bind_grp_layout = wgpu_state
+        .device
+        .create_bind_group_layout(&texture_sampler_bind_grp_layout_descriptor);
+
     let depth_attachment_texture_descriptor = wgpu::TextureDescriptor {
         label: Some("Output Depth Texture"),
         size: wgpu::Extent3d {
@@ -85,19 +119,14 @@ pub async fn create_render_setup_raster_standard(
         .device
         .create_texture(&depth_attachment_texture_descriptor);
 
-    let transform_bind_grp_layout = wgpu_state
-        .device
-        .create_bind_group_layout(&transform_bind_grp_layout_descriptor);
-    let mat_light_bind_grp_layout = wgpu_state
-        .device
-        .create_bind_group_layout(&mat_light_bind_grp_layout_descriptor);
-
     let pipeline = render_pipeline_factory::create_render_pipeline_raster(
         &wgpu_state.device,
         &texture_format,
+        // REMEMBER to add the new bind group layouts to the pipeline creation function
         &[
             Some(&transform_bind_grp_layout),
             Some(&mat_light_bind_grp_layout),
+            Some(&texture_sampler_bind_grp_layout),
         ],
         vert_shader_path.as_ref(),
         frag_shader_path.as_ref(),
@@ -111,6 +140,7 @@ pub async fn create_render_setup_raster_standard(
         bind_group_layouts: BindGroupLayoutState {
             transform_bind_group_layout: transform_bind_grp_layout,
             mat_light_bind_group_layout: mat_light_bind_grp_layout,
+            texture_sampler_bind_group_layout: texture_sampler_bind_grp_layout,
         },
         depth_attachment_texture,
     };

@@ -1,4 +1,4 @@
-use crate::ds::model::{MaterialStore, TextureStore};
+use crate::ds::model::{MaterialStore, TextureObject, TextureStore};
 use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::viewer::{EguiFrame, Screen, ViewerState};
 use crate::ds::{
@@ -137,6 +137,8 @@ impl AppState {
 
         let transform_bind_group: &wgpu::BindGroup = &render_payload.transform_bind_group;
         let mat_light_bind_group: &wgpu::BindGroup = &render_payload.mat_light_bind_group;
+        let texture_sampler_bind_group: Option<&wgpu::BindGroup> =
+            render_payload.texture_sampler_bind_group.as_ref();
         let vertex_buffer: &wgpu::Buffer = &render_payload.vertex_buffer;
         let index_buffer: &wgpu::Buffer = &render_payload.index_buffer;
 
@@ -159,6 +161,7 @@ impl AppState {
             &render_pipeline,
             transform_bind_group,
             mat_light_bind_group,
+            texture_sampler_bind_group,
             vertex_buffer,
             index_buffer,
             draw_indices,
@@ -374,11 +377,10 @@ impl ApplicationHandler<AppState> for App {
                     .as_mut()
                     .expect("Surface state should be initialized before resizing.");
 
-                let current_model = &mut self.scene.models_mut()[0]; // TODO: Unsafe, for temporary testing
                 let bind_group_layouts = &renderer_state.bind_group_layouts;
                 let device = &mut wgpu_obj.device;
+                let queue = &wgpu_obj.queue;
 
-                let face_len = current_model.face_count();
                 let output_width = surface_state.config.width;
                 let output_height = surface_state.config.height;
 
@@ -407,13 +409,70 @@ impl ApplicationHandler<AppState> for App {
 
                 let projection_info = ProjectionInfo::default();
 
+                // TODO: Support rendering multiple models in the scene
+                let model = self
+                    .scene
+                    .models()
+                    .first()
+                    .ok_or_else(|| anyhow::anyhow!("Scene has no models to render!"))
+                    .unwrap();
+
+                let face_len = model.face_count();
+                println!(
+                    "Rendering model: {}\n  Vert count: {}\n  Face count: {}",
+                    model.file_path(),
+                    model.vert_count(),
+                    model.face_count()
+                );
+
+                let temp_mesh = model
+                    .meshes()
+                    .first()
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Model has no meshes to render! Model file path: {}",
+                            model.file_path()
+                        )
+                    })
+                    .unwrap();
+
+                let material = temp_mesh
+                    .mat_key()
+                    .and_then(|mat_key| self.material_store.get_material(mat_key));
+
+                let mut texture_obj: Option<&TextureObject> = None;
+
+                if let Some(mat) = material {
+                    if let Some(p) = mat.texture_set.diffuse_map_path.as_ref() {
+                        let full_path = format!("{}/{}", model.model_dir_path(), p);
+
+                        let tex_option = self.texture_store.get_or_load_texture(
+                            &device,
+                            &queue,
+                            full_path.clone(),
+                            wgpu::TextureFormat::Rgba8UnormSrgb,
+                            "Test Texture",
+                        );
+
+                        match tex_option {
+                            Some(tex) => {
+                                println!("Found diffuse texture at: {}", full_path);
+                                texture_obj = Some(tex);
+                            }
+                            None => {
+                                println!("No diffuse texture found at: {}", full_path);
+                            }
+                        }
+                    }
+                }
                 let render_payload = render_payload::create_standard_render_payload(
                     device,
-                    current_model,
+                    model,
                     bind_group_layouts,
                     &object_transform,
                     &camera_info,
                     &projection_info,
+                    texture_obj,
                     output_width,
                     output_height,
                 );

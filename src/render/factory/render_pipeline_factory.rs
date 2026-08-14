@@ -9,7 +9,7 @@ pub async fn create_render_pipeline_raster(
     frag_shader_path: impl AsRef<Path>,
 ) -> anyhow::Result<wgpu::RenderPipeline> {
     let pipeline_layout_descriptor = wgpu::PipelineLayoutDescriptor {
-        label: Some("Image Export Pipeline Layout"),
+        label: Some("Render Pipeline Layout"),
         bind_group_layouts: bind_group_layouts,
         immediate_size: 0,
     };
@@ -24,7 +24,7 @@ pub async fn create_render_pipeline_raster(
         ));
 
     let vert_shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Image Export Vertex Shader"),
+        label: Some("Vertex Shader"),
         source: wgpu::ShaderSource::Wgsl(vertex_shader_source.into()),
     });
 
@@ -42,7 +42,7 @@ pub async fn create_render_pipeline_raster(
     ));
 
     let frag_shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("Image Export Fragment Shader"),
+        label: Some("Fragment Shader"),
         source: wgpu::ShaderSource::Wgsl(fragment_shader_source.into()),
     });
 
@@ -68,7 +68,7 @@ pub async fn create_render_pipeline_raster(
     };
 
     let pipeline_descriptor = wgpu::RenderPipelineDescriptor {
-        label: Some("Image Export Render Pipeline"),
+        label: Some("Render Pipeline"),
         layout: Some(&pipeline_layout),
         vertex: pipeline_vert_state,
         fragment: Some(pipeline_frag_state),

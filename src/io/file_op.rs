@@ -2,7 +2,7 @@ use anyhow::Context;
 use std::fs::{self, DirEntry};
 use std::path::PathBuf;
 
-pub async fn load_binary(file_path: impl Into<String>) -> anyhow::Result<Vec<u8>> {
+pub fn load_binary(file_path: impl Into<String>) -> anyhow::Result<Vec<u8>> {
     let file_path = file_path.into();
     let bytes = fs::read(file_path.clone())
         .with_context(|| format!("Failed to read binary file: {}", file_path))?;

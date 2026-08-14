@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
         material_store.materials().keys()
     );
 
-    let texture_store = TextureStore::new();
+    let mut texture_store = TextureStore::new();
 
     if window_mode {
         run(loaded_scene, material_store, texture_store).expect("Failed to run the application");
@@ -70,8 +70,8 @@ fn main() -> anyhow::Result<()> {
         println!("Num Models in scene: {}", loaded_scene.models().len(),);
         pollster::block_on(image_exporter::render_image(
             &loaded_scene,
-            material_store,
-            texture_store,
+            &material_store,
+            &mut texture_store,
             image_export_dir,
             IMAGE_FILE_NAME,
             IMAGE_FILE_FORMAT,

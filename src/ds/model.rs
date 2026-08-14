@@ -1,5 +1,3 @@
-use wgpu::util::DeviceExt;
-
 use crate::io::file_op;
 use std::collections::HashMap;
 use std::mem;
@@ -216,6 +214,14 @@ impl Mesh {
         self.mat_key = Some(mat_key);
         self
     }
+
+    pub fn has_material(&self) -> bool {
+        self.mat_key.is_some()
+    }
+
+    pub fn mat_key(&self) -> Option<&String> {
+        self.mat_key.as_ref()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -245,7 +251,7 @@ impl TextureStore {
         self.textures.insert(texture_key, texture);
     }
 
-    pub fn get_texture(&mut self, texture_key: impl Into<String>) -> Option<&TextureObject> {
+    pub fn get_texture(&self, texture_key: impl Into<String>) -> Option<&TextureObject> {
         self.textures.get(&texture_key.into())
     }
 
@@ -256,7 +262,7 @@ impl TextureStore {
         self.textures.get_mut(&texture_key.into())
     }
 
-    pub async fn load_texture(
+    pub fn get_or_load_texture(
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -265,8 +271,13 @@ impl TextureStore {
         texture_label: impl Into<String>,
     ) -> Option<&TextureObject> {
         let texture_file_path_str = texture_file_path.into();
+
+        if self.get_texture(&texture_file_path_str).is_some() {
+            return self.get_texture(texture_file_path_str);
+        }
+
         let texture_label = texture_label.into();
-        let data = file_op::load_binary(&texture_file_path_str).await.ok()?;
+        let data = file_op::load_binary(&texture_file_path_str).ok()?;
         if let Ok(texture_img) = image::load_from_memory(&data) {
             let texture_img_rgba = texture_img.to_rgba8();
             let dimensions = texture_img_rgba.dimensions();
@@ -349,6 +360,10 @@ impl MaterialStore {
 
     pub fn insert_material(&mut self, material_subpath: String, material: Material) {
         self.materials.insert(material_subpath, material);
+    }
+
+    pub fn get_material(&self, material_key: impl Into<String>) -> Option<&Material> {
+        self.materials.get(&material_key.into())
     }
 
     pub fn get_material_mut(&mut self, material_key: impl Into<String>) -> Option<&mut Material> {
@@ -448,6 +463,14 @@ impl Model {
 
     pub fn vert_count(&self) -> usize {
         self.meshes.iter().map(|mesh| mesh.verts().len()).sum()
+    }
+
+    pub fn model_dir_path(&self) -> &str {
+        &self.model_dir_path
+    }
+
+    pub fn model_filename(&self) -> &str {
+        &self.model_filename
     }
 
     pub fn file_path(&self) -> String {

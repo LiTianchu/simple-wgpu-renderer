@@ -1,5 +1,5 @@
 use crate::ds::{
-    model::{Face, MaterialStore, Scene, TextureStore},
+    model::{Face, MaterialStore, Scene, TextureObject, TextureStore},
     transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
 };
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
@@ -10,8 +10,8 @@ const BYTES_PER_PIXEL: usize = 4;
 
 pub async fn render_image(
     scene: &Scene,
-    material_store: MaterialStore,
-    texture_store: TextureStore,
+    material_store: &MaterialStore,
+    texture_store: &mut TextureStore,
     export_dir: impl AsRef<Path>,
     export_file_name: impl Into<String>,
     export_file_ext: impl Into<String>,
@@ -34,6 +34,7 @@ pub async fn render_image(
     .await?;
 
     let device = renderer_state.wgpu_object.device;
+    let queue = renderer_state.wgpu_object.queue;
 
     // copy_buffer_to_texture requires byte alignment
     let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
@@ -116,6 +117,52 @@ pub async fn render_image(
         model.face_count()
     );
 
+    let temp_mesh = model
+        .meshes()
+        .first()
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Model has no meshes to render! Model file path: {}",
+                model.file_path()
+            )
+        })
+        .unwrap();
+
+    let material = temp_mesh
+        .mat_key()
+        .and_then(|mat_key| material_store.get_material(mat_key));
+
+    let mut texture_obj: Option<&TextureObject> = None;
+
+    // TODO: Support rendering multiple materials in the model
+    if let Some(mat) = material {
+        if let Some(p) = mat.texture_set.diffuse_map_path.as_ref() {
+            let full_path = format!("{}/{}", model.model_dir_path(), p);
+
+            let tex_option = texture_store.get_or_load_texture(
+                &device,
+                &queue,
+                full_path.clone(),
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+                "Test Texture",
+            );
+
+            match tex_option {
+                Some(tex) => {
+                    println!("Found diffuse texture at: {}", full_path);
+                    texture_obj = Some(tex);
+                }
+                None => {
+                    println!("No diffuse texture found at: {}", full_path);
+                }
+            }
+        }
+    }
+
+    if texture_obj.is_none() {
+        println!("No diffuse texture found for the model. Rendering without texture.");
+    }
+
     let render_payload = render_payload::create_standard_render_payload(
         &device,
         &model,
@@ -123,6 +170,7 @@ pub async fn render_image(
         &object_transform,
         &camera_info,
         &projection_info,
+        texture_obj,
         output_width,
         output_height,
     );
@@ -131,10 +179,11 @@ pub async fn render_image(
 
     let submission_index: wgpu::SubmissionIndex = render_pass::render_to_output_buffer(
         &device,
-        &renderer_state.wgpu_object.queue,
+        &queue,
         &renderer_state.render_pipeline,
         &render_payload.transform_bind_group,
         &render_payload.mat_light_bind_group,
+        render_payload.texture_sampler_bind_group.as_ref(),
         &render_payload.vertex_buffer,
         &render_payload.index_buffer,
         0..(faces.len() * 3) as u32,

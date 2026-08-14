@@ -1,6 +1,6 @@
 use crate::{
     ds::{
-        model::Model,
+        model::{Model, TextureObject},
         transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
         wgpu_resource::BindGroupLayoutState,
     },
@@ -13,6 +13,7 @@ pub struct RenderPayload {
     pub index_buffer: wgpu::Buffer,
     pub transform_bind_group: wgpu::BindGroup,
     pub mat_light_bind_group: wgpu::BindGroup,
+    pub texture_sampler_bind_group: Option<wgpu::BindGroup>,
 }
 
 pub fn create_standard_render_payload(
@@ -22,6 +23,7 @@ pub fn create_standard_render_payload(
     object_transform: &ObjectTransform,
     camera_info: &CameraInfo,
     projection_info: &ProjectionInfo,
+    diffuse_texture_obj: Option<&TextureObject>,
     render_width: u32,
     render_height: u32,
 ) -> RenderPayload {
@@ -92,10 +94,30 @@ pub fn create_standard_render_payload(
         ],
     });
 
+    let mut texture_sampler_bind_group = None;
+
+    if let Some(diffuse_texture_obj) = diffuse_texture_obj {
+        texture_sampler_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Image Export Texture-Sampler Bind Group"),
+            layout: &bind_group_layouts.texture_sampler_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_obj.texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture_obj.sampler),
+                },
+            ],
+        }));
+    }
+
     RenderPayload {
         vertex_buffer,
         index_buffer,
         transform_bind_group,
         mat_light_bind_group,
+        texture_sampler_bind_group,
     }
 }
