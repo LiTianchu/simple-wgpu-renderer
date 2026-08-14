@@ -63,6 +63,10 @@ fn get_files_by_type_helper(
                 Err(_) => {}
             }
         }
+    } else {
+        if path.extension().and_then(|ext| ext.to_str()) == Some(target_file_type) {
+            paths.push(path);
+        }
     }
     Ok(())
 }

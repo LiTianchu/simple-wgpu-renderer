@@ -37,6 +37,10 @@ fn main() -> anyhow::Result<()> {
 
     let all_model_paths = model_loader::get_files_by_type_recur(model_path.clone(), "obj")?;
 
+    if all_model_paths.is_empty() {
+        panic!("No OBJ model found at path: {}", &model_path);
+    }
+
     loaded_model = model_loader::load_obj_model_all(all_model_paths)
         .expect(&format!("No model loaded at path: {}", &model_path));
 
