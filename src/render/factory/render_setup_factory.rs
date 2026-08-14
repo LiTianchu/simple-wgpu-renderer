@@ -11,6 +11,7 @@ pub async fn create_render_setup_raster_standard(
     vert_shader_path: impl AsRef<Path>,
     frag_shader_path: impl AsRef<Path>,
     screen_info: Option<Screen>,
+    depth_attachment_size: (u32, u32),
 ) -> anyhow::Result<RendererState> {
     let screen_info_is_none = screen_info.is_none();
     let wgpu_state = if screen_info_is_none {
@@ -65,6 +66,25 @@ pub async fn create_render_setup_raster_standard(
         ],
     };
 
+    let depth_attachment_texture_descriptor = wgpu::TextureDescriptor {
+        label: Some("Output Depth Texture"),
+        size: wgpu::Extent3d {
+            width: depth_attachment_size.0,
+            height: depth_attachment_size.1,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    };
+
+    let depth_attachment_texture: wgpu::Texture = wgpu_state
+        .device
+        .create_texture(&depth_attachment_texture_descriptor);
+
     let transform_bind_grp_layout = wgpu_state
         .device
         .create_bind_group_layout(&transform_bind_grp_layout_descriptor);
@@ -92,6 +112,7 @@ pub async fn create_render_setup_raster_standard(
             transform_bind_group_layout: transform_bind_grp_layout,
             mat_light_bind_group_layout: mat_light_bind_grp_layout,
         },
+        depth_attachment_texture,
     };
 
     Ok(renderer_state)

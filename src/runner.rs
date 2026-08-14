@@ -42,6 +42,7 @@ impl AppState {
                 window_inner_width: size.width,
                 window_inner_height: size.height,
             }),
+            (size.width, size.height),
         )
         .await?;
 
@@ -120,7 +121,6 @@ impl AppState {
         &mut self,
         render_payload: &render_payload::RenderPayload,
         draw_indices: core::ops::Range<u32>,
-        depth_attachment_texture: &wgpu::Texture,
         egui_frame: &mut EguiFrame,
     ) -> anyhow::Result<()> {
         self.window.request_redraw();
@@ -163,7 +163,7 @@ impl AppState {
             index_buffer,
             draw_indices,
             clear_color,
-            depth_attachment_texture,
+            &self.renderer_state.depth_attachment_texture,
             &mut self.egui_renderer,
             egui_frame.paint_jobs.as_slice(),
             &mut egui_frame.textures_delta,
@@ -269,12 +269,16 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(initial_scene: Scene, material_cache: MaterialCache) -> Self {
+    pub fn new(
+        initial_scene: Scene,
+        material_cache: MaterialCache,
+        texture_cache: TextureCache,
+    ) -> Self {
         Self {
             state: None,
             scene: initial_scene,
             material_cache: material_cache,
-            texture_cache: TextureCache::new(),
+            texture_cache: texture_cache,
         }
     }
 
@@ -378,24 +382,6 @@ impl ApplicationHandler<AppState> for App {
                 let output_width = surface_state.config.width;
                 let output_height = surface_state.config.height;
 
-                let depth_attachment_texture_descriptor = wgpu::TextureDescriptor {
-                    label: Some("Output Depth Texture"),
-                    size: wgpu::Extent3d {
-                        width: output_width,
-                        height: output_height,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: wgpu::TextureDimension::D2,
-                    format: wgpu::TextureFormat::Depth32Float,
-                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    view_formats: &[],
-                };
-
-                let depth_attachment_texture: wgpu::Texture =
-                    device.create_texture(&depth_attachment_texture_descriptor);
-
                 let mut object_transform = ObjectTransform::default();
 
                 object_transform.set_rotation_euler(
@@ -432,12 +418,7 @@ impl ApplicationHandler<AppState> for App {
                     output_height,
                 );
 
-                match state.render(
-                    &render_payload,
-                    0..(face_len * 3) as u32,
-                    &depth_attachment_texture,
-                    &mut egui_frame,
-                ) {
+                match state.render(&render_payload, 0..(face_len * 3) as u32, &mut egui_frame) {
                     Ok(_) => {}
                     Err(e) => {
                         log::error!("{e}");
@@ -459,11 +440,15 @@ impl ApplicationHandler<AppState> for App {
     }
 }
 
-pub fn run(initial_scene: Scene, material_cache: MaterialCache) -> anyhow::Result<()> {
+pub fn run(
+    initial_scene: Scene,
+    material_cache: MaterialCache,
+    texture_cache: TextureCache,
+) -> anyhow::Result<()> {
     env_logger::init();
 
     let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new(initial_scene, material_cache);
+    let mut app = App::new(initial_scene, material_cache, texture_cache);
     event_loop.run_app(&mut app)?;
 
     Ok(())

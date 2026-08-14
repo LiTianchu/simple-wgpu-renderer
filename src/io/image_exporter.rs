@@ -1,5 +1,5 @@
 use crate::ds::{
-    model::{Face, MaterialCache, Scene},
+    model::{Face, MaterialCache, Scene, TextureCache},
     transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
 };
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
@@ -10,7 +10,8 @@ const BYTES_PER_PIXEL: usize = 4;
 
 pub async fn render_image(
     scene: &Scene,
-    _material_cache: MaterialCache,
+    material_cache: MaterialCache,
+    texture_cache: TextureCache,
     export_dir: impl AsRef<Path>,
     export_file_name: impl Into<String>,
     export_file_ext: impl Into<String>,
@@ -28,6 +29,7 @@ pub async fn render_image(
         vert_shader_path,
         frag_shader_path,
         None,
+        (output_width, output_height),
     )
     .await?;
 

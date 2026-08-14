@@ -1,4 +1,4 @@
-use my_renderer::ds::model::{MaterialCache, Scene};
+use my_renderer::ds::model::{MaterialCache, Scene, TextureCache};
 use my_renderer::io::{image_exporter, model_loader};
 use my_renderer::runner::run;
 use std::env;
@@ -51,8 +51,10 @@ fn main() -> anyhow::Result<()> {
         material_cache.materials().keys()
     );
 
+    let texture_cache = TextureCache::new();
+
     if window_mode {
-        run(loaded_scene, material_cache).expect("Failed to run the application");
+        run(loaded_scene, material_cache, texture_cache).expect("Failed to run the application");
         Ok(())
     } else {
         // export image
@@ -69,6 +71,7 @@ fn main() -> anyhow::Result<()> {
         pollster::block_on(image_exporter::render_image(
             &loaded_scene,
             material_cache,
+            texture_cache,
             image_export_dir,
             IMAGE_FILE_NAME,
             IMAGE_FILE_FORMAT,

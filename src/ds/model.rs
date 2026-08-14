@@ -234,6 +234,10 @@ impl TextureCache {
     pub fn insert_texture(&mut self, texture_subpath: String, texture: wgpu::Texture) {
         self.textures.insert(texture_subpath, texture);
     }
+
+    pub fn get_texture(&mut self, texture_key: impl Into<String>) -> Option<&wgpu::Texture> {
+        self.textures.get(&texture_key.into())
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -131,6 +131,7 @@ pub struct RendererState {
     pub render_pipeline: wgpu::RenderPipeline,
     pub bind_group_layouts: BindGroupLayoutState,
     pub frag_texture_format: wgpu::TextureFormat,
+    pub depth_attachment_texture: wgpu::Texture,
 }
 
 #[derive(Debug)]
