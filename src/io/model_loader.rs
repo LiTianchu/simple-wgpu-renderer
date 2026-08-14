@@ -1,6 +1,9 @@
 use anyhow::Context;
+use std::path::Path;
 
-use crate::ds::model::{Material, MaterialAttributeSet, Mesh, Model, TextureSet, Vertex};
+use crate::ds::model::{
+    Material, MaterialAttributeSet, MaterialCache, Mesh, Model, Scene, TextureSet, Vertex,
+};
 use std::{fs::DirEntry, path::PathBuf};
 
 pub fn get_files_by_type_recur(
@@ -71,22 +74,30 @@ fn get_files_by_type_helper(
     Ok(())
 }
 
-pub fn load_obj_model_all(paths: Vec<PathBuf>) -> Option<Model> {
-    let mut loaded_model = Model::new();
+pub fn load_obj_models_to_scene(
+    paths: Vec<PathBuf>,
+    material_cache: &mut MaterialCache,
+) -> Option<Scene> {
+    let mut loaded_scene = Scene::new();
     for p in paths {
+        let mut loaded_model = Model::new();
         println!("Loading: {}", p.to_string_lossy());
-        match collect_obj_model_data(p.to_string_lossy(), &mut loaded_model).ok() {
+        match collect_obj_model_data(p.to_string_lossy(), &mut loaded_model, material_cache).ok() {
             Some(_) => {}
             None => return None,
         }
+        loaded_scene.push_model(loaded_model);
     }
-    Some(loaded_model)
+    Some(loaded_scene)
 }
 
-pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
+pub fn load_obj_model(
+    path_str: impl Into<String>,
+    material_cache: &mut MaterialCache,
+) -> Option<Model> {
     let mut loaded_model = Model::new();
 
-    match collect_obj_model_data(path_str, &mut loaded_model).ok() {
+    match collect_obj_model_data(path_str, &mut loaded_model, material_cache).ok() {
         Some(_) => {}
         None => return None,
     }
@@ -97,6 +108,7 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
 pub fn collect_obj_model_data(
     path_str: impl Into<String>,
     model: &mut Model,
+    material_cache: &mut MaterialCache,
 ) -> anyhow::Result<()> {
     let path_str = path_str.into();
     println!("Starting to collect OBJ model data at: {}", path_str);
@@ -114,6 +126,20 @@ pub fn collect_obj_model_data(
             Default::default()
         }
     };
+
+    let obj_dir = Path::new(&path_str)
+        .parent()
+        .unwrap_or_else(|| Path::new("."));
+
+    model.set_model_dir_path(obj_dir.to_string_lossy().to_string());
+
+    model.set_model_filename(
+        Path::new(&path_str)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
+    );
 
     println!("Number of models          = {}", models.len());
     println!("Number of materials       = {}", materials.len());
@@ -166,8 +192,6 @@ pub fn collect_obj_model_data(
         }
 
         assert!(mesh.positions.len() % 3 == 0);
-        let mat_id = mesh.material_id.unwrap_or(0);
-        loaded_model_mesh.set_mat_id(mat_id);
 
         for vtx in 0..mesh.positions.len() / 3 {
             let pos_x = mesh.positions.get(3 * vtx).copied().unwrap_or_default();
@@ -187,6 +211,28 @@ pub fn collect_obj_model_data(
                 .with_normal(norm_x, norm_y, norm_z);
 
             loaded_model_mesh.push_vert(vertex);
+        }
+
+        println!(
+            "Pushed mesh with verts len = {}, faces len = {}",
+            loaded_model_mesh.verts().len(),
+            loaded_model_mesh.faces().len()
+        );
+
+        let material_id = mesh.material_id.unwrap_or(0);
+        // set material path if have
+        if let Some(material_name) = materials.get(material_id).map(|m| m.name.clone()) {
+            let mat_full_path = obj_dir.join(material_name.clone());
+
+            println!(
+                "model[{}].mesh.material_id = {}, material name = {}, full path = {}",
+                i,
+                material_id,
+                material_name,
+                mat_full_path.to_string_lossy()
+            );
+
+            loaded_model_mesh.set_mat_key(mat_full_path.to_string_lossy().to_string());
         }
 
         model.push_mesh(loaded_model_mesh);
@@ -286,7 +332,14 @@ pub fn collect_obj_model_data(
             println!("    material.{} = {}", k, v);
         }
 
-        model.push_material(material);
+        let mat_full_path = obj_dir.join(m.name.clone());
+
+        println!(
+            "    cached material at path = {}",
+            mat_full_path.to_string_lossy()
+        );
+
+        material_cache.insert_material(mat_full_path.to_string_lossy().to_string(), material);
     }
     Ok(())
 }

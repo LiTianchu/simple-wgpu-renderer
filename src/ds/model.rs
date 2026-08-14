@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::mem;
 
 #[repr(C)]
@@ -173,7 +174,7 @@ impl Material {
 pub struct Mesh {
     verts: Vec<Vertex>,
     faces: Vec<Face>,
-    mat_id: usize,
+    mat_key: Option<String>,
 }
 
 impl Mesh {
@@ -181,7 +182,7 @@ impl Mesh {
         Self {
             verts: Vec::new(),
             faces: Vec::new(),
-            mat_id: 0,
+            mat_key: None,
         }
     }
     pub fn verts(&self) -> &[Vertex] {
@@ -204,36 +205,76 @@ impl Mesh {
         })
     }
 
-    pub fn set_mat_id(&mut self, new_mat_id: usize) {
-        self.mat_id = new_mat_id;
+    pub fn set_mat_key(&mut self, mat_key: String) {
+        self.mat_key = Some(mat_key);
     }
 
-    pub fn with_mat_id(mut self, mat_id: usize) -> Self {
-        self.mat_id = mat_id;
+    pub fn with_mat_key(mut self, mat_key: String) -> Self {
+        self.mat_key = Some(mat_key);
         self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TextureCache {
+    textures: HashMap<String, wgpu::Texture>, // file_path -> texture
+}
+
+impl TextureCache {
+    pub fn new() -> Self {
+        Self {
+            textures: HashMap::new(),
+        }
+    }
+
+    pub fn textures(&self) -> &HashMap<String, wgpu::Texture> {
+        &self.textures
+    }
+
+    pub fn insert_texture(&mut self, texture_subpath: String, texture: wgpu::Texture) {
+        self.textures.insert(texture_subpath, texture);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MaterialCache {
+    materials: HashMap<String, Material>, // file_path -> material
+}
+
+impl MaterialCache {
+    pub fn new() -> Self {
+        Self {
+            materials: HashMap::new(),
+        }
+    }
+
+    pub fn materials(&self) -> &HashMap<String, Material> {
+        &self.materials
+    }
+
+    pub fn insert_material(&mut self, material_subpath: String, material: Material) {
+        self.materials.insert(material_subpath, material);
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Model {
     meshes: Vec<Mesh>,
-    materials: Vec<Material>,
+    model_dir_path: String,
+    model_filename: String,
 }
 
 impl Model {
     pub fn new() -> Self {
         Self {
             meshes: Vec::new(),
-            materials: Vec::new(),
+            model_dir_path: String::new(),
+            model_filename: String::new(),
         }
     }
 
     pub fn meshes(&self) -> &[Mesh] {
         &self.meshes
-    }
-
-    pub fn materials(&self) -> &[Material] {
-        &self.materials
     }
 
     pub fn mesh_mut(&mut self) -> &mut [Mesh] {
@@ -244,8 +285,12 @@ impl Model {
         self.meshes.push(mesh);
     }
 
-    pub fn push_material(&mut self, material: Material) {
-        self.materials.push(material);
+    pub fn set_model_dir_path(&mut self, model_dir_path: String) {
+        self.model_dir_path = model_dir_path;
+    }
+
+    pub fn set_model_filename(&mut self, model_filename: String) {
+        self.model_filename = model_filename;
     }
 
     pub fn all_faces_iter(&self) -> impl Iterator<Item = &Face> {
@@ -304,5 +349,32 @@ impl Model {
 
     pub fn vert_count(&self) -> usize {
         self.meshes.iter().map(|mesh| mesh.verts().len()).sum()
+    }
+
+    pub fn file_path(&self) -> String {
+        format!("{}/{}", self.model_dir_path, self.model_filename)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Scene {
+    models: Vec<Model>,
+}
+
+impl Scene {
+    pub fn new() -> Self {
+        Self { models: Vec::new() }
+    }
+
+    pub fn models(&self) -> &[Model] {
+        &self.models
+    }
+
+    pub fn models_mut(&mut self) -> &mut [Model] {
+        &mut self.models
+    }
+
+    pub fn push_model(&mut self, model: Model) {
+        self.models.push(model);
     }
 }

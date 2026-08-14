@@ -1,6 +1,10 @@
+use crate::ds::model::{MaterialCache, TextureCache};
 use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::viewer::{EguiFrame, Screen, ViewerState};
-use crate::ds::{model::Model, wgpu_resource::RendererState};
+use crate::ds::{
+    model::{Material, Scene},
+    wgpu_resource::RendererState,
+};
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
 use glam::Vec3;
 use std::sync::Arc;
@@ -259,15 +263,39 @@ impl AppState {
 
 pub struct App {
     state: Option<AppState>,
-    model_list: Vec<Model>,
+    scene: Scene,
+    material_cache: MaterialCache,
+    texture_cache: TextureCache,
 }
 
 impl App {
-    pub fn new(initial_model: Model) -> Self {
+    pub fn new(initial_scene: Scene, material_cache: MaterialCache) -> Self {
         Self {
             state: None,
-            model_list: vec![initial_model],
+            scene: initial_scene,
+            material_cache: material_cache,
+            texture_cache: TextureCache::new(),
         }
+    }
+
+    pub fn material_cache(&self) -> &MaterialCache {
+        &self.material_cache
+    }
+
+    pub fn material_cache_mut(&mut self) -> &mut MaterialCache {
+        &mut self.material_cache
+    }
+
+    pub fn texture_cache(&self) -> &TextureCache {
+        &self.texture_cache
+    }
+
+    pub fn texture_cache_mut(&mut self) -> &mut TextureCache {
+        &mut self.texture_cache
+    }
+
+    pub fn insert_material_to_cache(&mut self, material_key: String, material: Material) {
+        self.material_cache.insert_material(material_key, material);
     }
 }
 
@@ -342,7 +370,7 @@ impl ApplicationHandler<AppState> for App {
                     .as_mut()
                     .expect("Surface state should be initialized before resizing.");
 
-                let current_model = &mut self.model_list[0]; // TODO: Unsafe, for temporary testing
+                let current_model = &mut self.scene.models_mut()[0]; // TODO: Unsafe, for temporary testing
                 let bind_group_layouts = &renderer_state.bind_group_layouts;
                 let device = &mut wgpu_obj.device;
 
@@ -431,11 +459,11 @@ impl ApplicationHandler<AppState> for App {
     }
 }
 
-pub fn run(initial_model: Model) -> anyhow::Result<()> {
+pub fn run(initial_scene: Scene, material_cache: MaterialCache) -> anyhow::Result<()> {
     env_logger::init();
 
     let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new(initial_model);
+    let mut app = App::new(initial_scene, material_cache);
     event_loop.run_app(&mut app)?;
 
     Ok(())

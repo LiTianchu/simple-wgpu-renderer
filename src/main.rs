@@ -1,4 +1,4 @@
-use my_renderer::ds::model::Model;
+use my_renderer::ds::model::{MaterialCache, Scene};
 use my_renderer::io::{image_exporter, model_loader};
 use my_renderer::runner::run;
 use std::env;
@@ -19,7 +19,7 @@ fn main() -> anyhow::Result<()> {
     let mut window_mode = false;
     let mut model_path = DEFAULT_MODEL_PATH.to_string();
 
-    let loaded_model: Model;
+    let loaded_scene: Scene;
     for i in 0..arg_len {
         let arg_str = arg_list[i].as_ref();
         match arg_str {
@@ -41,11 +41,18 @@ fn main() -> anyhow::Result<()> {
         panic!("No OBJ model found at path: {}", &model_path);
     }
 
-    loaded_model = model_loader::load_obj_model_all(all_model_paths)
+    let mut material_cache = MaterialCache::new();
+
+    loaded_scene = model_loader::load_obj_models_to_scene(all_model_paths, &mut material_cache)
         .expect(&format!("No model loaded at path: {}", &model_path));
 
+    println!(
+        "Materials in cache: {:?}",
+        material_cache.materials().keys()
+    );
+
     if window_mode {
-        run(loaded_model).expect("Failed to run the application");
+        run(loaded_scene, material_cache).expect("Failed to run the application");
         Ok(())
     } else {
         // export image
@@ -58,15 +65,10 @@ fn main() -> anyhow::Result<()> {
             ));
         }
 
-        println!(
-            "Num Meshes: {}, Num Materials: {}, Num Vertices: {}, Num Faces: {}",
-            loaded_model.meshes().len(),
-            loaded_model.materials().len(),
-            loaded_model.vert_count(),
-            loaded_model.face_count()
-        );
+        println!("Num Models in scene: {}", loaded_scene.models().len(),);
         pollster::block_on(image_exporter::render_image(
-            &loaded_model,
+            &loaded_scene,
+            material_cache,
             image_export_dir,
             IMAGE_FILE_NAME,
             IMAGE_FILE_FORMAT,

@@ -1,5 +1,5 @@
 use crate::ds::{
-    model::{Face, Model},
+    model::{Face, MaterialCache, Scene},
     transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
 };
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
@@ -9,7 +9,8 @@ use std::path::Path;
 const BYTES_PER_PIXEL: usize = 4;
 
 pub async fn render_image(
-    model: &Model,
+    scene: &Scene,
+    _material_cache: MaterialCache,
     export_dir: impl AsRef<Path>,
     export_file_name: impl Into<String>,
     export_file_ext: impl Into<String>,
@@ -100,9 +101,21 @@ pub async fn render_image(
         far: 1000.0,
     };
 
+    // TODO: Support rendering multiple models in the scene
+    let model = scene
+        .models()
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("Scene has no models to render!"))?;
+    println!(
+        "Rendering model: {}\n  Vert count: {}\n  Face count: {}",
+        model.file_path(),
+        model.vert_count(),
+        model.face_count()
+    );
+
     let render_payload = render_payload::create_standard_render_payload(
         &device,
-        model,
+        &model,
         &renderer_state.bind_group_layouts,
         &object_transform,
         &camera_info,
