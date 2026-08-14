@@ -1,10 +1,7 @@
 use anyhow::Context;
 
 use crate::ds::model::{Material, MaterialAttributeSet, Mesh, Model, TextureSet, Vertex};
-use std::{
-    fs::{DirEntry, FileType},
-    path::PathBuf,
-};
+use std::{fs::DirEntry, path::PathBuf};
 
 pub fn get_files_by_type_recur(
     path_str: impl Into<String>,

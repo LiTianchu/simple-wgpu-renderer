@@ -259,11 +259,25 @@ impl Model {
             .collect::<Vec<_>>()
     }
 
+    // flattens all faces across meshes, offsetting each mesh's local
+    // vertex indices by the cumulative vertex count of prior meshes
+    // if not the indices will not be correct
     pub fn all_faces_copied(&self) -> Vec<Face> {
-        self.meshes
-            .iter()
-            .flat_map(|mesh| mesh.faces().iter().copied())
-            .collect::<Vec<_>>()
+        let mut result = Vec::with_capacity(self.face_count());
+        let mut vertex_offset: u32 = 0;
+
+        for mesh in &self.meshes {
+            for face in mesh.faces() {
+                result.push(Face::new(
+                    face.index_1 + vertex_offset,
+                    face.index_2 + vertex_offset,
+                    face.index_3 + vertex_offset,
+                ));
+            }
+            vertex_offset += mesh.verts().len() as u32;
+        }
+
+        result
     }
 
     pub fn all_verts_iter(&self) -> impl Iterator<Item = &Vertex> {

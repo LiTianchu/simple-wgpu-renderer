@@ -2,7 +2,6 @@ use my_renderer::ds::model::Model;
 use my_renderer::io::{image_exporter, model_loader};
 use my_renderer::runner::run;
 use std::env;
-use std::fs;
 
 const IMAGE_EXPORT_DIR: &str = "./output";
 const IMAGE_FILE_NAME: &str = "render";
@@ -56,7 +55,9 @@ fn main() -> anyhow::Result<()> {
         }
 
         println!(
-            "Num Vertices: {}, Num Faces: {}",
+            "Num Meshes: {}, Num Materials: {}, Num Vertices: {}, Num Faces: {}",
+            loaded_model.meshes().len(),
+            loaded_model.materials().len(),
             loaded_model.vert_count(),
             loaded_model.face_count()
         );
