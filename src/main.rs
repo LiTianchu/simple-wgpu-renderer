@@ -1,5 +1,5 @@
-use my_renderer::ds::model::{MaterialCache, Scene, TextureCache};
-use my_renderer::io::{image_exporter, model_loader};
+use my_renderer::ds::model::{MaterialStore, Scene, TextureStore};
+use my_renderer::io::{file_op, image_exporter, model_loader};
 use my_renderer::runner::run;
 use std::env;
 
@@ -35,26 +35,26 @@ fn main() -> anyhow::Result<()> {
         };
     }
 
-    let all_model_paths = model_loader::get_files_by_type_recur(model_path.clone(), "obj")?;
+    let all_model_paths = file_op::get_files_by_type_recur(model_path.clone(), "obj")?;
 
     if all_model_paths.is_empty() {
         panic!("No OBJ model found at path: {}", &model_path);
     }
 
-    let mut material_cache = MaterialCache::new();
+    let mut material_store = MaterialStore::new();
 
-    loaded_scene = model_loader::load_obj_models_to_scene(all_model_paths, &mut material_cache)
+    loaded_scene = model_loader::load_obj_models_to_scene(all_model_paths, &mut material_store)
         .expect(&format!("No model loaded at path: {}", &model_path));
 
     println!(
-        "Materials in cache: {:?}",
-        material_cache.materials().keys()
+        "Materials in store: {:?}",
+        material_store.materials().keys()
     );
 
-    let texture_cache = TextureCache::new();
+    let texture_store = TextureStore::new();
 
     if window_mode {
-        run(loaded_scene, material_cache, texture_cache).expect("Failed to run the application");
+        run(loaded_scene, material_store, texture_store).expect("Failed to run the application");
         Ok(())
     } else {
         // export image
@@ -70,8 +70,8 @@ fn main() -> anyhow::Result<()> {
         println!("Num Models in scene: {}", loaded_scene.models().len(),);
         pollster::block_on(image_exporter::render_image(
             &loaded_scene,
-            material_cache,
-            texture_cache,
+            material_store,
+            texture_store,
             image_export_dir,
             IMAGE_FILE_NAME,
             IMAGE_FILE_FORMAT,

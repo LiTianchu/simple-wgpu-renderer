@@ -1,82 +1,13 @@
-use anyhow::Context;
 use std::path::Path;
 
 use crate::ds::model::{
-    Material, MaterialAttributeSet, MaterialCache, Mesh, Model, Scene, TextureSet, Vertex,
+    Material, MaterialAttributeSet, MaterialStore, Mesh, Model, Scene, TextureSet, Vertex,
 };
-use std::{fs::DirEntry, path::PathBuf};
-
-pub fn get_files_by_type_recur(
-    path_str: impl Into<String>,
-    file_type: &str,
-) -> anyhow::Result<Vec<PathBuf>> {
-    let path_str = path_str.into();
-    let mut paths: Vec<PathBuf> = Vec::new();
-    println!("Searching path: {}", path_str.clone());
-    get_files_by_type_helper(path_str, &mut paths, file_type)?;
-
-    return Ok(paths);
-}
-
-fn get_files_by_type_helper(
-    path_str: impl Into<String>,
-    paths: &mut Vec<PathBuf>,
-    target_file_type: &str,
-) -> anyhow::Result<()> {
-    let path_str = path_str.into();
-
-    let path: PathBuf = PathBuf::from(path_str.clone());
-    if path.is_dir() {
-        let read_dir = path
-            .read_dir()
-            .with_context(|| format!("Failed to read dir: {}", path.to_string_lossy()))?;
-
-        for (i, entry_result) in read_dir.enumerate() {
-            let entry: DirEntry = entry_result.with_context(|| {
-                format!(
-                    "Failed to read dir entry {} - {}",
-                    path.to_string_lossy(),
-                    i
-                )
-            })?;
-
-            match entry.file_type() {
-                Ok(f_type) => {
-                    if f_type.is_dir() {
-                        let entry_path = entry.path();
-                        println!(
-                            "Found sub folder at {}, searching...",
-                            entry_path.to_string_lossy()
-                        );
-
-                        get_files_by_type_helper(
-                            entry_path.to_string_lossy(),
-                            paths,
-                            target_file_type,
-                        )?;
-                    } else {
-                        let path_buf = entry.path();
-                        if path_buf.extension().and_then(|ext| ext.to_str())
-                            == Some(target_file_type)
-                        {
-                            paths.push(path_buf);
-                        }
-                    }
-                }
-                Err(_) => {}
-            }
-        }
-    } else {
-        if path.extension().and_then(|ext| ext.to_str()) == Some(target_file_type) {
-            paths.push(path);
-        }
-    }
-    Ok(())
-}
+use std::path::PathBuf;
 
 pub fn load_obj_models_to_scene(
     paths: Vec<PathBuf>,
-    material_cache: &mut MaterialCache,
+    material_cache: &mut MaterialStore,
 ) -> Option<Scene> {
     let mut loaded_scene = Scene::new();
     for p in paths {
@@ -93,7 +24,7 @@ pub fn load_obj_models_to_scene(
 
 pub fn load_obj_model(
     path_str: impl Into<String>,
-    material_cache: &mut MaterialCache,
+    material_cache: &mut MaterialStore,
 ) -> Option<Model> {
     let mut loaded_model = Model::new();
 
@@ -108,7 +39,7 @@ pub fn load_obj_model(
 pub fn collect_obj_model_data(
     path_str: impl Into<String>,
     model: &mut Model,
-    material_cache: &mut MaterialCache,
+    material_cache: &mut MaterialStore,
 ) -> anyhow::Result<()> {
     let path_str = path_str.into();
     println!("Starting to collect OBJ model data at: {}", path_str);

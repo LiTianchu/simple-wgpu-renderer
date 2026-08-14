@@ -1,3 +1,6 @@
+use wgpu::util::DeviceExt;
+
+use crate::io::file_op;
 use std::collections::HashMap;
 use std::mem;
 
@@ -216,36 +219,124 @@ impl Mesh {
 }
 
 #[derive(Debug, Clone)]
-pub struct TextureCache {
-    textures: HashMap<String, wgpu::Texture>, // file_path -> texture
+pub struct TextureObject {
+    pub texture: wgpu::Texture,
+    pub texture_view: wgpu::TextureView,
+    pub sampler: wgpu::Sampler,
 }
 
-impl TextureCache {
+#[derive(Debug, Clone)]
+pub struct TextureStore {
+    textures: HashMap<String, TextureObject>, // file_path -> texture
+}
+
+impl TextureStore {
     pub fn new() -> Self {
         Self {
             textures: HashMap::new(),
         }
     }
 
-    pub fn textures(&self) -> &HashMap<String, wgpu::Texture> {
+    pub fn textures(&self) -> &HashMap<String, TextureObject> {
         &self.textures
     }
 
-    pub fn insert_texture(&mut self, texture_subpath: String, texture: wgpu::Texture) {
-        self.textures.insert(texture_subpath, texture);
+    pub fn insert_texture(&mut self, texture_key: String, texture: TextureObject) {
+        self.textures.insert(texture_key, texture);
     }
 
-    pub fn get_texture(&mut self, texture_key: impl Into<String>) -> Option<&wgpu::Texture> {
+    pub fn get_texture(&mut self, texture_key: impl Into<String>) -> Option<&TextureObject> {
         self.textures.get(&texture_key.into())
+    }
+
+    pub fn get_texture_mut(
+        &mut self,
+        texture_key: impl Into<String>,
+    ) -> Option<&mut TextureObject> {
+        self.textures.get_mut(&texture_key.into())
+    }
+
+    pub async fn load_texture(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        texture_file_path: impl Into<String>,
+        texture_format: wgpu::TextureFormat,
+        texture_label: impl Into<String>,
+    ) -> Option<&TextureObject> {
+        let texture_file_path_str = texture_file_path.into();
+        let texture_label = texture_label.into();
+        let data = file_op::load_binary(&texture_file_path_str).await.ok()?;
+        if let Ok(texture_img) = image::load_from_memory(&data) {
+            let texture_img_rgba = texture_img.to_rgba8();
+            let dimensions = texture_img_rgba.dimensions();
+            let texture_size = wgpu::Extent3d {
+                width: dimensions.0,
+                height: dimensions.1,
+                depth_or_array_layers: 1,
+            };
+            let texture_descriptor = wgpu::TextureDescriptor {
+                size: texture_size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: texture_format,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_SRC
+                    | wgpu::TextureUsages::COPY_DST,
+                label: Some(&texture_label),
+                view_formats: &[],
+            };
+            let wgpu_texture = device.create_texture(&texture_descriptor);
+
+            // NOTE: write_texture does not require byte alignment
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &wgpu_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &texture_img_rgba,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * dimensions.0),
+                    rows_per_image: Some(dimensions.1),
+                },
+                texture_size,
+            );
+            let texture_view = wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+                label: Some(&format!("{} Sampler", &texture_label)),
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Nearest, // pixel art
+                min_filter: wgpu::FilterMode::Nearest, // pixel art
+                mipmap_filter: wgpu::MipmapFilterMode::Nearest, // pixel art
+                ..Default::default()
+            });
+            self.insert_texture(
+                texture_file_path_str.to_string(),
+                TextureObject {
+                    texture: wgpu_texture,
+                    texture_view,
+                    sampler,
+                },
+            );
+
+            return self.get_texture(texture_file_path_str);
+        }
+        None
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct MaterialCache {
+pub struct MaterialStore {
     materials: HashMap<String, Material>, // file_path -> material
 }
 
-impl MaterialCache {
+impl MaterialStore {
     pub fn new() -> Self {
         Self {
             materials: HashMap::new(),
@@ -258,6 +349,10 @@ impl MaterialCache {
 
     pub fn insert_material(&mut self, material_subpath: String, material: Material) {
         self.materials.insert(material_subpath, material);
+    }
+
+    pub fn get_material_mut(&mut self, material_key: impl Into<String>) -> Option<&mut Material> {
+        self.materials.get_mut(&material_key.into())
     }
 }
 

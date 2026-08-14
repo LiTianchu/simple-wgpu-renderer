@@ -1,5 +1,5 @@
 use crate::ds::{
-    model::{Face, MaterialCache, Scene, TextureCache},
+    model::{Face, MaterialStore, Scene, TextureStore},
     transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
 };
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
@@ -10,8 +10,8 @@ const BYTES_PER_PIXEL: usize = 4;
 
 pub async fn render_image(
     scene: &Scene,
-    material_cache: MaterialCache,
-    texture_cache: TextureCache,
+    material_store: MaterialStore,
+    texture_store: TextureStore,
     export_dir: impl AsRef<Path>,
     export_file_name: impl Into<String>,
     export_file_ext: impl Into<String>,
@@ -35,6 +35,7 @@ pub async fn render_image(
 
     let device = renderer_state.wgpu_object.device;
 
+    // copy_buffer_to_texture requires byte alignment
     let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
     let alignment: u32 = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
 

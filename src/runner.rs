@@ -1,4 +1,4 @@
-use crate::ds::model::{MaterialCache, TextureCache};
+use crate::ds::model::{MaterialStore, TextureStore};
 use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::viewer::{EguiFrame, Screen, ViewerState};
 use crate::ds::{
@@ -264,42 +264,42 @@ impl AppState {
 pub struct App {
     state: Option<AppState>,
     scene: Scene,
-    material_cache: MaterialCache,
-    texture_cache: TextureCache,
+    material_store: MaterialStore,
+    texture_store: TextureStore,
 }
 
 impl App {
     pub fn new(
         initial_scene: Scene,
-        material_cache: MaterialCache,
-        texture_cache: TextureCache,
+        material_store: MaterialStore,
+        texture_store: TextureStore,
     ) -> Self {
         Self {
             state: None,
             scene: initial_scene,
-            material_cache: material_cache,
-            texture_cache: texture_cache,
+            material_store: material_store,
+            texture_store: texture_store,
         }
     }
 
-    pub fn material_cache(&self) -> &MaterialCache {
-        &self.material_cache
+    pub fn material_store(&self) -> &MaterialStore {
+        &self.material_store
     }
 
-    pub fn material_cache_mut(&mut self) -> &mut MaterialCache {
-        &mut self.material_cache
+    pub fn material_store_mut(&mut self) -> &mut MaterialStore {
+        &mut self.material_store
     }
 
-    pub fn texture_cache(&self) -> &TextureCache {
-        &self.texture_cache
+    pub fn texture_store(&self) -> &TextureStore {
+        &self.texture_store
     }
 
-    pub fn texture_cache_mut(&mut self) -> &mut TextureCache {
-        &mut self.texture_cache
+    pub fn texture_store_mut(&mut self) -> &mut TextureStore {
+        &mut self.texture_store
     }
 
-    pub fn insert_material_to_cache(&mut self, material_key: String, material: Material) {
-        self.material_cache.insert_material(material_key, material);
+    pub fn insert_material_to_store(&mut self, material_key: String, material: Material) {
+        self.material_store.insert_material(material_key, material);
     }
 }
 
@@ -442,13 +442,13 @@ impl ApplicationHandler<AppState> for App {
 
 pub fn run(
     initial_scene: Scene,
-    material_cache: MaterialCache,
-    texture_cache: TextureCache,
+    material_store: MaterialStore,
+    texture_store: TextureStore,
 ) -> anyhow::Result<()> {
     env_logger::init();
 
     let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new(initial_scene, material_cache, texture_cache);
+    let mut app = App::new(initial_scene, material_store, texture_store);
     event_loop.run_app(&mut app)?;
 
     Ok(())
