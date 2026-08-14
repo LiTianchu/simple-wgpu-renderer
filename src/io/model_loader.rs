@@ -45,6 +45,8 @@ pub fn collect_obj_model_data(
     println!("Starting to collect OBJ model data at: {}", path_str);
 
     let obj_load_options = tobj::LoadOptions {
+        single_index: true,
+        triangulate: true,
         ..Default::default()
     };
 
@@ -129,22 +131,18 @@ pub fn collect_obj_model_data(
             let pos_y = mesh.positions.get(3 * vtx + 1).copied().unwrap_or_default();
             let pos_z = mesh.positions.get(3 * vtx + 2).copied().unwrap_or_default();
 
-            let uv_x = mesh.texcoords.get(3 * vtx).copied().unwrap_or_default();
-            let uv_y = mesh.texcoords.get(3 * vtx + 1).copied().unwrap_or_default();
+            let uv_x = mesh.texcoords.get(2 * vtx).copied().unwrap_or_default();
+            let uv_y = mesh.texcoords.get(2 * vtx + 1).copied().unwrap_or_default();
 
             // TODO: there are some model's UV is more than 1.0, need to check this
-            // println!(
-            //     "model[{}].mesh.vertex[{}] = pos({:.3}, {:.3}, {:.3}), uv({:.3}, {:.3})",
-            //     i, vtx, pos_x, pos_y, pos_z, uv_x, uv_y
-            // );
-
             let norm_x = mesh.normals.get(3 * vtx).copied().unwrap_or_default();
             let norm_y = mesh.normals.get(3 * vtx + 1).copied().unwrap_or_default();
             let norm_z = mesh.normals.get(3 * vtx + 2).copied().unwrap_or_default();
 
+            // OBJ files UV can be flipped in the y direction, need to flip it back
             let vertex = Vertex::new()
                 .with_position(pos_x, pos_y, pos_z)
-                .with_uv(uv_x, uv_y)
+                .with_uv(uv_x, 1.0 - uv_y)
                 .with_normal(norm_x, norm_y, norm_z);
 
             loaded_model_mesh.push_vert(vertex);

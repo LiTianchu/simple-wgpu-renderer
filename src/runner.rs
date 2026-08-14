@@ -18,8 +18,8 @@ use winit::{
     window::Window,
 };
 
-const DEMO_VERT_SHADER_PATH: &str = "./src/shaders/uv.wgsl";
-const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/uv.wgsl";
+const DEMO_VERT_SHADER_PATH: &str = "./src/shaders/textured.wgsl";
+const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/textured.wgsl";
 const WINDOW_PHYSICAL_SIZE: PhysicalSize<u32> = PhysicalSize::new(1280, 800);
 
 pub struct AppState {

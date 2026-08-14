@@ -78,5 +78,5 @@ fn fs_main(interp: V2F, @builtin(front_facing) is_front_facing: bool) -> @locati
 
     let tex_color = textureSample(t_diffuse, s_diffuse, interp.uv);
 
-    return vec4<f32>(tex_color.rgb * light_intensity, a);
+    return vec4<f32>(tex_color.rgb * light_intensity, tex_color.a);
 }
