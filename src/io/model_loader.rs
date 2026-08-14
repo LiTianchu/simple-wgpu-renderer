@@ -1,13 +1,110 @@
+use anyhow::Context;
+
 use crate::ds::model::{Material, MaterialAttributeSet, Mesh, Model, TextureSet, Vertex};
+use std::{
+    fs::{DirEntry, FileType},
+    path::PathBuf,
+};
+
+pub fn get_files_by_type_recur(
+    path_str: impl Into<String>,
+    file_type: &str,
+) -> anyhow::Result<Vec<PathBuf>> {
+    let path_str = path_str.into();
+    let mut paths: Vec<PathBuf> = Vec::new();
+    println!("Searching path: {}", path_str.clone());
+    get_files_by_type_helper(path_str, &mut paths, file_type)?;
+
+    return Ok(paths);
+}
+
+fn get_files_by_type_helper(
+    path_str: impl Into<String>,
+    paths: &mut Vec<PathBuf>,
+    target_file_type: &str,
+) -> anyhow::Result<()> {
+    let path_str = path_str.into();
+
+    let path: PathBuf = PathBuf::from(path_str.clone());
+    if path.is_dir() {
+        let read_dir = path
+            .read_dir()
+            .with_context(|| format!("Failed to read dir: {}", path.to_string_lossy()))?;
+
+        for (i, entry_result) in read_dir.enumerate() {
+            let entry: DirEntry = entry_result.with_context(|| {
+                format!(
+                    "Failed to read dir entry {} - {}",
+                    path.to_string_lossy(),
+                    i
+                )
+            })?;
+
+            match entry.file_type() {
+                Ok(f_type) => {
+                    if f_type.is_dir() {
+                        let entry_path = entry.path();
+                        println!(
+                            "Found sub folder at {}, searching...",
+                            entry_path.to_string_lossy()
+                        );
+
+                        get_files_by_type_helper(
+                            entry_path.to_string_lossy(),
+                            paths,
+                            target_file_type,
+                        )?;
+                    } else {
+                        let path_buf = entry.path();
+                        if path_buf.extension().and_then(|ext| ext.to_str())
+                            == Some(target_file_type)
+                        {
+                            paths.push(path_buf);
+                        }
+                    }
+                }
+                Err(_) => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn load_obj_model_all(paths: Vec<PathBuf>) -> Option<Model> {
+    let mut loaded_model = Model::new();
+    for p in paths {
+        println!("Loading: {}", p.to_string_lossy());
+        match collect_obj_model_data(p.to_string_lossy(), &mut loaded_model).ok() {
+            Some(_) => {}
+            None => return None,
+        }
+    }
+    Some(loaded_model)
+}
 
 pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
     let mut loaded_model = Model::new();
+
+    match collect_obj_model_data(path_str, &mut loaded_model).ok() {
+        Some(_) => {}
+        None => return None,
+    }
+
+    Some(loaded_model)
+}
+
+pub fn collect_obj_model_data(
+    path_str: impl Into<String>,
+    model: &mut Model,
+) -> anyhow::Result<()> {
+    let path_str = path_str.into();
+    println!("Starting to collect OBJ model data at: {}", path_str);
 
     let obj_load_options = tobj::LoadOptions {
         ..Default::default()
     };
 
-    let (models, materials) = tobj::load_obj(&path_str.into(), &obj_load_options).ok()?;
+    let (models, materials) = tobj::load_obj(&path_str.clone(), &obj_load_options)?;
 
     let materials = match materials {
         Ok(mat) => mat,
@@ -45,8 +142,10 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
 
         for face in 0..num_faces {
             if mesh.face_arities.len() > 0 && mesh.face_arities[face] as usize != 3 {
-                println!("Failed to parse model data. The model mesh is not a triangle mesh!");
-                return None;
+                anyhow::bail!(
+                    "Failed to parse model data. The model mesh is not a triangle mesh!"
+                        .to_string(),
+                );
             }
 
             let end = next_face + 3;
@@ -89,7 +188,7 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
             loaded_model_mesh.push_vert(vertex);
         }
 
-        loaded_model.push_mesh(loaded_model_mesh);
+        model.push_mesh(loaded_model_mesh);
     }
 
     for (i, m) in materials.iter().enumerate() {
@@ -186,8 +285,7 @@ pub fn load_obj_model(path_str: impl Into<String>) -> Option<Model> {
             println!("    material.{} = {}", k, v);
         }
 
-        loaded_model.push_material(material);
+        model.push_material(material);
     }
-
-    return Some(loaded_model);
+    Ok(())
 }

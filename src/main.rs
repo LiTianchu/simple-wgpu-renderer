@@ -2,6 +2,7 @@ use my_renderer::ds::model::Model;
 use my_renderer::io::{image_exporter, model_loader};
 use my_renderer::runner::run;
 use std::env;
+use std::fs;
 
 const IMAGE_EXPORT_DIR: &str = "./output";
 const IMAGE_FILE_NAME: &str = "render";
@@ -35,7 +36,9 @@ fn main() -> anyhow::Result<()> {
         };
     }
 
-    loaded_model = model_loader::load_obj_model(&model_path)
+    let all_model_paths = model_loader::get_files_by_type_recur(model_path.clone(), "obj")?;
+
+    loaded_model = model_loader::load_obj_model_all(all_model_paths)
         .expect(&format!("No model loaded at path: {}", &model_path));
 
     if window_mode {
