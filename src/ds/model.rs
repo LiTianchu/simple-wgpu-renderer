@@ -224,8 +224,8 @@ impl Mesh {
         self.mat_key.as_ref()
     }
 
-    pub fn draw_indices(&self) -> std::ops::Range<u32> {
-        0..(self.faces().len() * 3) as u32
+    pub fn draw_indices(&self) -> u32 {
+        (self.faces().len() * 3) as u32
     }
 }
 

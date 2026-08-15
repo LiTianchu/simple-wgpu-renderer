@@ -1,6 +1,6 @@
 use anyhow::{Context, anyhow};
 
-use crate::ds::model::{MaterialStore, Scene, TextureStore};
+use crate::ds::model::{Face, MaterialStore, Scene, TextureStore, Vertex};
 
 pub fn render_to_output_buffer(
     // WGPU Resources
@@ -78,6 +78,13 @@ pub fn render_to_output_buffer(
             command_encoder.begin_render_pass(&render_pass_descriptor);
         render_pass.set_pipeline(&pipeline);
 
+        println!("Rendering {} modes", scene.models().len());
+
+        let mut index_buffer_offset: wgpu::BufferAddress = 0;
+        let mut vertex_buffer_offset: wgpu::BufferAddress = 0;
+        let mut index_count_offset: u32 = 0;
+        let mut base_vertex: i32 = 0;
+
         for model in scene.models_iter() {
             for mesh in model.meshes().iter() {
                 // ============ Draw Call ============
@@ -121,23 +128,37 @@ pub fn render_to_output_buffer(
                 let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
 
                 render_pass.set_bind_group(0, transform_bind_group, &[]);
-                println!("Setting transform bind group");
                 render_pass.set_bind_group(1, light_bind_group, &[]);
-                println!("Setting light bind groups");
                 render_pass.set_bind_group(2, mat_bind_group, &[]);
-                println!("Setting material bind group");
 
                 render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
-                println!("Setting texture sampler bind group");
 
                 // write buffer
-                queue.write_buffer(vertex_buffer, 0, bytemuck::cast_slice(mesh.verts()));
-                queue.write_buffer(index_buffer, 0, bytemuck::cast_slice(mesh.faces()));
+                queue.write_buffer(
+                    vertex_buffer,
+                    vertex_buffer_offset,
+                    bytemuck::cast_slice(mesh.verts()),
+                );
+                queue.write_buffer(
+                    index_buffer,
+                    index_buffer_offset,
+                    bytemuck::cast_slice(mesh.faces()),
+                );
+                vertex_buffer_offset +=
+                    (std::mem::size_of::<Vertex>() * mesh.verts().len()) as wgpu::BufferAddress;
+                index_buffer_offset +=
+                    (std::mem::size_of::<Face>() * mesh.faces().len()) as wgpu::BufferAddress;
 
                 render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
                 render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                println!("Drawing {} indices", mesh.draw_indices().len());
-                render_pass.draw_indexed(mesh.draw_indices(), 0, 0..1);
+                render_pass.draw_indexed(
+                    index_count_offset..(index_count_offset + mesh.draw_indices()),
+                    base_vertex,
+                    0..1,
+                );
+                index_count_offset += mesh.draw_indices();
+
+                base_vertex += mesh.verts().len() as i32
                 // ============ End Draw Call ============
             }
         }
@@ -260,7 +281,10 @@ pub fn render_to_screen(
         });
 
         render_pass.set_pipeline(render_pipeline);
-
+        let mut index_buffer_offset: wgpu::BufferAddress = 0;
+        let mut vertex_buffer_offset: wgpu::BufferAddress = 0;
+        let mut index_count_offset: u32 = 0;
+        let mut base_vertex: i32 = 0;
         for model in scene.models_iter() {
             for mesh in model.meshes().iter() {
                 // ============ Draw Call ============
@@ -300,23 +324,35 @@ pub fn render_to_screen(
                 let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
 
                 render_pass.set_bind_group(0, transform_bind_group, &[]);
-                println!("Setting transform bind group");
                 render_pass.set_bind_group(1, light_bind_group, &[]);
-                println!("Setting light bind groups");
                 render_pass.set_bind_group(2, mat_bind_group, &[]);
-                println!("Setting material bind group");
 
                 render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
-                println!("Setting texture sampler bind group");
-
                 // write buffer
-                queue.write_buffer(vertex_buffer, 0, bytemuck::cast_slice(mesh.verts()));
-                queue.write_buffer(index_buffer, 0, bytemuck::cast_slice(mesh.faces()));
+                queue.write_buffer(
+                    vertex_buffer,
+                    vertex_buffer_offset,
+                    bytemuck::cast_slice(mesh.verts()),
+                );
+                queue.write_buffer(
+                    index_buffer,
+                    index_buffer_offset,
+                    bytemuck::cast_slice(mesh.faces()),
+                );
+                vertex_buffer_offset +=
+                    (std::mem::size_of::<Vertex>() * mesh.verts().len()) as wgpu::BufferAddress;
+                index_buffer_offset +=
+                    (std::mem::size_of::<Face>() * mesh.faces().len()) as wgpu::BufferAddress;
 
                 render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
                 render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                println!("Drawing {} indices", mesh.draw_indices().len());
-                render_pass.draw_indexed(mesh.draw_indices(), 0, 0..1);
+                render_pass.draw_indexed(
+                    index_count_offset..(index_count_offset + mesh.draw_indices()),
+                    base_vertex,
+                    0..1,
+                );
+                index_count_offset += mesh.draw_indices();
+                base_vertex += mesh.verts().len() as i32
                 // ============ End Draw Call ============
             }
         }

@@ -27,6 +27,7 @@ pub fn load_obj_models_to_scene(
         }
         loaded_scene.push_model(loaded_model);
     }
+    println!("Loaded {} models", loaded_scene.models().len());
     Some(loaded_scene)
 }
 
