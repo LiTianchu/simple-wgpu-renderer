@@ -1,7 +1,6 @@
 use anyhow::Context;
-use gltf::mesh;
 
-use crate::ds::model::{Face, MaterialStore, Mesh, Model, Scene, TextureStore, Vertex};
+use crate::ds::model::{Face, MaterialStore, Model, Scene, TextureStore, Vertex};
 
 pub fn render_to_output_buffer(
     // WGPU Resources

@@ -73,13 +73,7 @@ impl AppState {
             egui_wgpu::Renderer::new(&wgpu_object.device, surface_format, Default::default());
         // ========= End EGUI Setup =========
 
-        let viewer_state = ViewerState {
-            model_rotation_euler_deg: glam::Vec3::new(0.0, 0.0, 0.0),
-            model_scale_uniform: 1.0,
-            cam_elevation_deg: 45.0,
-            cam_radius: 5.0,
-            cam_fov_deg: 45.0,
-        };
+        let viewer_state = ViewerState::default();
 
         Ok(Self {
             window,
@@ -246,15 +240,19 @@ impl AppState {
                 .text("Model Rotation Z"),
             );
             ui.add(
-                egui::Slider::new(&mut self.viewer_state.model_scale_uniform, 0.0..=10.0)
+                egui::Slider::new(&mut self.viewer_state.model_scale_uniform, 0.0001..=100.0)
                     .text("Model Uniform Scale"),
+            );
+            ui.add(
+                egui::Slider::new(&mut self.viewer_state.cam_azimuth_deg, 0.0..=360.0)
+                    .text("Camera Azimuth Angle"),
             );
             ui.add(
                 egui::Slider::new(&mut self.viewer_state.cam_elevation_deg, -90.0..=90.0)
                     .text("Camera Elevation Angle"),
             );
             ui.add(
-                egui::Slider::new(&mut self.viewer_state.cam_radius, 0.01..=20.0)
+                egui::Slider::new(&mut self.viewer_state.cam_radius, 0.01..=100.0)
                     .text("Camera Orbit Radius"),
             );
             ui.add(
@@ -456,14 +454,21 @@ impl ApplicationHandler for App {
 
                 object_transform.set_scale_uniform(state.viewer_state.model_scale_uniform);
 
+                // Spherical to cartesion conversion
+                // x = radius * cos(elevation) * cos(azimuth)
                 // y = radius * sin(elevation)
+                // z = radius * cos(elevation) * sin(azimuth)
                 let camera_info = CameraInfo {
                     fov: state.viewer_state.cam_fov_deg.to_radians(),
                     position: Vec3::new(
-                        0.0,
+                        state.viewer_state.cam_radius
+                            * state.viewer_state.cam_elevation_deg.to_radians().cos()
+                            * state.viewer_state.cam_azimuth_deg.to_radians().cos(),
                         state.viewer_state.cam_radius
                             * state.viewer_state.cam_elevation_deg.to_radians().sin(),
-                        state.viewer_state.cam_radius,
+                        state.viewer_state.cam_radius
+                            * state.viewer_state.cam_elevation_deg.to_radians().cos()
+                            * state.viewer_state.cam_azimuth_deg.to_radians().sin(),
                     ),
                     ..Default::default()
                 };

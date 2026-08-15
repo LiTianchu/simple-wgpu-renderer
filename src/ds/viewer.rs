@@ -9,9 +9,23 @@ pub struct Screen {
 pub struct ViewerState {
     pub model_rotation_euler_deg: glam::Vec3,
     pub model_scale_uniform: f32,
+    pub cam_azimuth_deg: f32,
     pub cam_elevation_deg: f32,
     pub cam_radius: f32,
     pub cam_fov_deg: f32,
+}
+
+impl Default for ViewerState {
+    fn default() -> Self {
+        Self {
+            model_rotation_euler_deg: glam::Vec3::new(0.0, 0.0, 0.0),
+            model_scale_uniform: 1.0,
+            cam_azimuth_deg: 0.0,
+            cam_elevation_deg: 45.0,
+            cam_radius: 5.0,
+            cam_fov_deg: 45.0,
+        }
+    }
 }
 
 pub struct EguiFrame {

@@ -1,7 +1,4 @@
-use crate::{
-    ds::model::{Material, MaterialObject},
-    render::factory::buffer_factory,
-};
+use crate::{ds::model::Material, render::factory::buffer_factory};
 
 pub fn create_material_bind_group(
     device: &wgpu::Device,
