@@ -1,4 +1,5 @@
-use anyhow::{Context};
+use anyhow::Context;
+use gltf::mesh;
 
 use crate::ds::model::{Face, MaterialStore, Mesh, Model, Scene, TextureStore, Vertex};
 
@@ -86,12 +87,12 @@ pub fn render_to_output_buffer(
         let mut base_vertex: i32 = 0;
 
         for model in scene.models_iter() {
-            for mesh in model.meshes().iter() {
+            for mesh_index in 0..model.meshes().len() {
                 draw(
                     device,
                     queue,
                     model,
-                    mesh,
+                    mesh_index,
                     material_store,
                     texture_store,
                     &mut render_pass,
@@ -211,12 +212,12 @@ pub fn render_to_screen(
         let mut index_count_offset: u32 = 0;
         let mut base_vertex: i32 = 0;
         for model in scene.models_iter() {
-            for mesh in model.meshes().iter() {
+            for mesh_index in 0..model.meshes().len() {
                 draw(
                     device,
                     queue,
                     model,
-                    mesh,
+                    mesh_index,
                     material_store,
                     texture_store,
                     &mut render_pass,
@@ -278,7 +279,7 @@ fn draw(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     model: &Model,
-    mesh: &Mesh,
+    mesh_index: usize,
     material_store: &MaterialStore,
     texture_store: &mut TextureStore,
     render_pass: &mut wgpu::RenderPass,
@@ -293,6 +294,11 @@ fn draw(
 ) -> anyhow::Result<()> {
     // ============ Draw Call ============
     let mut mat_obj = material_store.default_material();
+    let mesh = &model.meshes().get(mesh_index).expect(&format!(
+        "Model {} mesh index {} out of bounds",
+        model.model_filename(),
+        mesh_index
+    ));
 
     if let Some(mat_key) = mesh.mat_key() {
         mat_obj = material_store.get_material(mat_key).expect(&format!(
@@ -303,42 +309,42 @@ fn draw(
 
     let mat_bind_group = &mat_obj.material_bind_group;
 
-    // TODO: Handle no texture situation (default texture generation)
-    // TODO: Handle multiple texture types (normal, specular, shininess)
-    let diffuse_texture_sub_path = mat_obj
-        .material
-        .texture_set
-        .diffuse_map_path
-        .as_ref()
-        .ok_or(format!(
-            "Diffuse texture does not exist for model at: {}",
-            model.file_path()
-        ))
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
-    let diffuse_texture_full_path =
-        format!("{}/{}", model.model_dir_path(), diffuse_texture_sub_path);
-
     let default_mat_label = String::from("default_material");
-    let texture_label = format!(
-        "{}-{}-{}",
-        model.file_path(),
-        mesh.mat_key().unwrap_or(&default_mat_label),
-        diffuse_texture_sub_path
-    );
-    let texture_obj = texture_store
-        .get_or_load_texture(
-            device,
-            queue,
-            diffuse_texture_full_path.clone(),
-            wgpu::TextureFormat::Rgba8Unorm,
-            texture_label,
-        )
-        .with_context(|| {
-            format!(
-                "Failed to load texture: {}",
-                diffuse_texture_full_path.clone()
+
+    // fallback texture
+    let mut texture_obj = &texture_store.default_textures().diffuse;
+
+    // TODO: Handle multiple texture types (normal, specular, shininess)
+    if let Some(diffuse_texture_sub_path) = mat_obj.material.texture_set.diffuse_map_path.as_ref() {
+        let diffuse_texture_full_path = format!(
+            "{}/{}",
+            model.model_dir_path(),
+            diffuse_texture_sub_path.clone()
+        );
+
+        let texture_label = format!(
+            "Loaded texture {}-{}-{}",
+            model.file_path(),
+            mesh.mat_key().unwrap_or(&default_mat_label),
+            diffuse_texture_sub_path.clone()
+        );
+
+        texture_obj = texture_store
+            .get_or_load_texture(
+                device,
+                queue,
+                diffuse_texture_full_path.clone(),
+                wgpu::TextureFormat::Rgba8Unorm,
+                texture_label,
             )
-        })?;
+            .with_context(|| {
+                format!(
+                    "Failed to load texture: {}",
+                    diffuse_texture_full_path.clone()
+                )
+            })?;
+    }
+
     let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
 
     render_pass.set_bind_group(0, transform_bind_group, &[]);

@@ -41,7 +41,7 @@ async fn render_off_screen(model_paths: Vec<PathBuf>, model_path: &str) -> anyho
     let wgpu_object = WgpuObject::off_screen().await;
     let scene_bind_group_layouts = SceneBindGroupLayoutSet::new(&wgpu_object.device);
     let mut material_store = MaterialStore::new(&wgpu_object.device);
-    let mut texture_store = TextureStore::new(&wgpu_object.device);
+    let mut texture_store = TextureStore::new(&wgpu_object.device, &wgpu_object.queue);
 
     let scene = model_loader::load_obj_models_to_scene(
         model_paths,

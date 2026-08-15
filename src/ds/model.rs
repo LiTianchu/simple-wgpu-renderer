@@ -1,7 +1,6 @@
 use crate::{
     io::file_op,
-    render::factory::{bind_group_factory, buffer_factory},
-    utils::copying,
+    render::factory::{bind_group_factory, buffer_factory, texture_factory},
 };
 use std::collections::HashMap;
 use std::mem;
@@ -247,13 +246,42 @@ pub struct TextureObject {
 }
 
 #[derive(Debug, Clone)]
+pub struct DefaultTextures {
+    pub diffuse: TextureObject,
+}
+
+impl DefaultTextures {
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        texture_sampler_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> Self {
+        let rgba_data_diffuse: Vec<u8> = vec![0xFF; 4];
+
+        let diffuse_tex_obj = texture_factory::create_texture(
+            device,
+            queue,
+            &rgba_data_diffuse,
+            (1, 1),
+            wgpu::TextureFormat::Rgba8Unorm,
+            texture_sampler_bind_group_layout,
+            "Diffuse Texture Default",
+        );
+        Self {
+            diffuse: diffuse_tex_obj,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct TextureStore {
     textures: HashMap<String, TextureObject>, // file_path -> texture
     texture_sampler_bind_group_layout: wgpu::BindGroupLayout,
+    default_textures: DefaultTextures,
 }
 
 impl TextureStore {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let texture_sampler_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("Texture-Sampler Bind Group Layout"),
@@ -277,14 +305,21 @@ impl TextureStore {
                 ],
             });
 
+        let default_textures =
+            DefaultTextures::new(device, queue, &texture_sampler_bind_group_layout);
         Self {
             textures: HashMap::new(),
             texture_sampler_bind_group_layout: texture_sampler_bind_group_layout,
+            default_textures: default_textures,
         }
     }
 
     pub fn textures(&self) -> &HashMap<String, TextureObject> {
         &self.textures
+    }
+
+    pub fn default_textures(&self) -> &DefaultTextures {
+        &self.default_textures
     }
 
     pub fn texture_sampler_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
@@ -341,60 +376,18 @@ impl TextureStore {
 
         if let Ok(texture_img) = image_result {
             let texture_img_rgba = texture_img.to_rgba8();
-            let dimensions = texture_img_rgba.dimensions();
-            let texture_size = wgpu::Extent3d {
-                width: dimensions.0,
-                height: dimensions.1,
-                depth_or_array_layers: 1,
-            };
-            let texture_descriptor = wgpu::TextureDescriptor {
-                size: texture_size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: texture_format,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING
-                    | wgpu::TextureUsages::COPY_SRC
-                    | wgpu::TextureUsages::COPY_DST,
-                label: Some(&texture_label),
-                view_formats: &[],
-            };
-            let wgpu_texture = device.create_texture(&texture_descriptor);
 
-            // NOTE: write_texture does not require byte alignment
-            copying::write_texture_rgba(&queue, &wgpu_texture, dimensions, &texture_img_rgba);
-
-            let texture_view = wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-            // NOTE: there are some model's UV is more than 1.0 meant for repeating
-            let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-                label: Some(&format!("{} Sampler", &texture_label)),
-                address_mode_u: wgpu::AddressMode::Repeat,
-                address_mode_v: wgpu::AddressMode::Repeat,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                mag_filter: wgpu::FilterMode::Linear, // pixel art
-                min_filter: wgpu::FilterMode::Linear, // pixel art
-                mipmap_filter: wgpu::MipmapFilterMode::Linear, // pixel art
-                ..Default::default()
-            });
-
-            let texture_sampler_bind_group = bind_group_factory::create_texture_sampler_bind_group(
-                &device,
-                &texture_view,
-                &sampler,
+            let tex_obj = texture_factory::create_texture(
+                device,
+                queue,
+                &texture_img_rgba,
+                texture_img_rgba.dimensions(),
+                texture_format,
                 &self.texture_sampler_bind_group_layout,
-                &format!("{} Texture-Sampler Bind Group", &texture_label),
+                texture_label,
             );
 
-            self.insert_texture(
-                texture_file_path_str.to_string(),
-                TextureObject {
-                    texture: wgpu_texture,
-                    texture_view,
-                    sampler,
-                    texture_sampler_bind_group: texture_sampler_bind_group,
-                },
-            );
+            self.insert_texture(texture_file_path_str.to_string(), tex_obj);
 
             return self.get_texture(texture_file_path_str);
         }

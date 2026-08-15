@@ -201,7 +201,8 @@ impl AppState {
             egui_frame.paint_jobs.as_slice(),
             &mut egui_frame.textures_delta,
             &egui_frame.screen_descriptor,
-        );
+        )?;
+
         Ok(())
     }
 
@@ -328,7 +329,7 @@ impl App {
         let wgpu_object = WgpuObject::on_screen(window.clone()).await;
         let scene_bind_group_layouts = SceneBindGroupLayoutSet::new(&wgpu_object.device);
         let mut material_store = MaterialStore::new(&wgpu_object.device);
-        let texture_store = TextureStore::new(&wgpu_object.device);
+        let texture_store = TextureStore::new(&wgpu_object.device, &wgpu_object.queue);
         let scene = model_loader::load_obj_models_to_scene(
             model_paths,
             &mut material_store,
