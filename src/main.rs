@@ -1,5 +1,6 @@
 use my_renderer::constants;
 use my_renderer::ds::model::{MaterialStore, Scene, TextureStore};
+use my_renderer::ds::wgpu_resource::{WgpuObject,SceneBindGroupLayoutSet};
 use my_renderer::io::{file_op, image_exporter, model_loader};
 use my_renderer::runner::run;
 use std::env;
@@ -33,9 +34,32 @@ fn main() -> anyhow::Result<()> {
         panic!("No OBJ model found at path: {}", &model_path);
     }
 
-    let mut material_store = MaterialStore::new();
+    let mat_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Material Bind Group Layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0, // material
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    };
 
-    loaded_scene = model_loader::load_obj_models_to_scene(all_model_paths, &mut material_store)
+    let wgpu_state = WgpuObject::on_screen(screen_info.unwrap()).await;
+    let wgpu_state = WgpuObject::off_screen().await;
+
+    let material_bind_grp_layout = wgpu_state
+        .device
+        .create_bind_group_layout(&mat_bind_grp_layout_descriptor);
+
+    let mut material_store = MaterialStore::new(material_bind_grp_layout);
+
+    loaded_scene = model_loader::load_obj_models_to_scene(all_model_paths, &mut material_store, &wgpu_state.device)
         .expect(&format!("No model loaded at path: {}", &model_path));
 
     println!(
@@ -43,10 +67,79 @@ fn main() -> anyhow::Result<()> {
         material_store.materials().keys()
     );
 
-    let mut texture_store = TextureStore::new();
+
+    let texture_sampler_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Texture-Sampler Bind Group Layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
+    };
+    let texture_sampler_bind_grp_layout = wgpu_state
+        .device
+        .create_bind_group_layout(&texture_sampler_bind_grp_layout_descriptor);
+
+    let transform_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Transform Bind Group Layout"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0, // transforms
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }],
+    };
+
+    let light_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Light Bind Group Layout"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0, // light
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            },
+        ],
+    };
+
+    let transform_bind_grp_layout = wgpu_state
+        .device
+        .create_bind_group_layout(&transform_bind_grp_layout_descriptor);
+
+    let light_bind_grp_layout = wgpu_state
+        .device
+        .create_bind_group_layout(&light_bind_grp_layout_descriptor);
+
+    let scene_bind_group_layout = SceneBindGroupLayoutSet{
+        transform_bind_group_layout,
+        light_bind_group_layout,
+    };
+
+    let mut texture_store = TextureStore::new(texture_sampler_bind_grp_layout);
 
     if window_mode {
-        run(loaded_scene, material_store, texture_store).expect("Failed to run the application");
+        run(wgpu_state,loaded_scene, material_store, texture_store, scene_bind_group_layout).expect("Failed to run the application");
         Ok(())
     } else {
         // export image
@@ -64,6 +157,7 @@ fn main() -> anyhow::Result<()> {
             &loaded_scene,
             &material_store,
             &mut texture_store,
+            &scene_bind_group_layout,
             image_export_dir,
             constants::IMAGE_FILE_NAME,
             constants::IMAGE_FILE_FORMAT,

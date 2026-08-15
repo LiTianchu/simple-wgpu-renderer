@@ -4,7 +4,7 @@ use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::viewer::{EguiFrame, Screen, ViewerState};
 use crate::ds::{
     model::{Material, Scene},
-    wgpu_resource::RendererState,
+    wgpu_resource::{SceneBindGroupLayoutSet, RendererState, WgpuObject},
 };
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
 use glam::Vec3;
@@ -28,9 +28,10 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+    pub async fn new(window: Arc<Window>, wgpu_object:&WgpuObject, scene_bind_group_layouts: &SceneBindGroupLayoutSet, material_bind_group_layout: &wgpu::BindGroupLayout, texture_sampler_bind_group_layout: &wgpu::BindGroupLayout, ) -> anyhow::Result<Self> {
         let size = window.inner_size();
         let renderer_state = render_setup_factory::create_render_setup_raster_standard(
+            wgpu_object,
             constants::TEXTURED_VERT_SHADER_PATH,
             constants::TEXTURED_FRAG_SHADER_PATH,
             Some(Screen {
@@ -39,19 +40,22 @@ impl AppState {
                 window_inner_height: size.height,
             }),
             (size.width, size.height),
+            scene_bind_group_layouts,
+            material_bind_group_layout,
+            texture_sampler_bind_group_layout,
         )
         .await?;
 
         // ========= EGUI Setup =========
         let egui_ctx = egui::Context::default();
-        let max_texture_side = renderer_state
-            .wgpu_object
+        let max_texture_side =
+            wgpu_object
             .device
             .limits()
             .max_texture_dimension_2d as usize;
 
-        let surface_format = renderer_state
-            .wgpu_object
+        let surface_format =
+            wgpu_object
             .surface_state
             .as_ref()
             .expect("Surface state should be initialized before creating egui renderer.")
@@ -68,7 +72,7 @@ impl AppState {
         );
 
         let egui_renderer = egui_wgpu::Renderer::new(
-            &renderer_state.wgpu_object.device,
+            &wgpu_object.device,
             surface_format,
             Default::default(),
         );
@@ -92,11 +96,10 @@ impl AppState {
         })
     }
 
-    pub fn resize(&mut self, width: u32, height: u32) {
+    pub fn resize(&mut self, width: u32, height: u32, wgpu_object: &mut WgpuObject) {
         if width > 0 && height > 0 {
-            let surface_state = self
-                .renderer_state
-                .wgpu_object
+            let surface_state =
+                wgpu_object
                 .surface_state
                 .as_mut()
                 .expect("Surface state should be initialized before resizing.");
@@ -105,7 +108,7 @@ impl AppState {
             surface_state.config.height = height;
 
             surface_state.surface.configure(
-                &self.renderer_state.wgpu_object.device,
+                &wgpu_object.device,
                 &surface_state.config,
             );
 
@@ -128,7 +131,7 @@ impl AppState {
             };
 
             let depth_attachment_texture: wgpu::Texture =
-                self.renderer_state.wgpu_object.device.create_texture(&depth_attachment_texture_descriptor);
+                wgpu_object.device.create_texture(&depth_attachment_texture_descriptor);
 
             self.renderer_state.depth_attachment_texture = depth_attachment_texture;
         }
@@ -136,14 +139,13 @@ impl AppState {
 
     pub fn render(
         &mut self,
+        scene: &Scene,
+        wgpu_object: &WgpuObject,
         render_payload: &render_payload::RenderPayload,
-        draw_indices: core::ops::Range<u32>,
         egui_frame: &mut EguiFrame,
     ) -> anyhow::Result<()> {
         self.window.request_redraw();
-        if !self
-            .renderer_state
-            .wgpu_object
+        if !wgpu_object
             .surface_state
             .as_ref()
             .expect("Surface state should be initialized before rendering.")
@@ -154,15 +156,9 @@ impl AppState {
 
         let transform_bind_group: &wgpu::BindGroup = &render_payload.transform_bind_group;
         let light_bind_group: &wgpu::BindGroup = &render_payload.light_bind_group;
-        let mat_bind_group: &wgpu::BindGroup = &render_payload.mat_bind_group;
-        let texture_sampler_bind_group: Option<&wgpu::BindGroup> =
-            render_payload.texture_sampler_bind_group.as_ref();
-        let vertex_buffer: &wgpu::Buffer = &render_payload.vertex_buffer;
-        let index_buffer: &wgpu::Buffer = &render_payload.index_buffer;
 
-        let wgpu_obj = &mut self.renderer_state.wgpu_object;
         let render_pipeline = &self.renderer_state.render_pipeline;
-        let surface_state = wgpu_obj.surface_state.as_mut().unwrap();
+        let surface_state = wgpu_object.surface_state.as_ref().unwrap();
 
         let clear_color = wgpu::Color {
             r: 0.0,
@@ -172,19 +168,15 @@ impl AppState {
         };
 
         let _submission_index = render_pass::render_to_screen(
-            &wgpu_obj.device,
-            &wgpu_obj.queue,
+            &wgpu_object.device,
+            &wgpu_object.queue,
             &surface_state.surface,
             &surface_state.config,
             &render_pipeline,
             transform_bind_group,
             light_bind_group,
-            mat_bind_group,
-            texture_sampler_bind_group,
-            vertex_buffer,
-            index_buffer,
-            draw_indices,
             clear_color,
+            scene,
             &self.renderer_state.depth_attachment_texture,
             &mut self.egui_renderer,
             egui_frame.paint_jobs.as_slice(),
@@ -203,7 +195,7 @@ impl AppState {
         }
     }
 
-    fn create_egui_frame(&mut self, event_loop: &ActiveEventLoop) -> EguiFrame {
+    fn create_egui_frame(&mut self,wgpu_object: &WgpuObject, event_loop: &ActiveEventLoop) -> EguiFrame {
         let raw_input = self.egui_winit.take_egui_input(&self.window);
 
         let output: egui::FullOutput = self.egui_ctx.run_ui(raw_input, |ui| {
@@ -264,10 +256,7 @@ impl AppState {
 
         let paint_jobs = self.egui_ctx.tessellate(shapes, pixels_per_point);
 
-        let config = &self
-            .renderer_state
-            .wgpu_object
-            .surface_state
+        let config = & wgpu_object .surface_state
             .as_ref()
             .expect("Surface state should be initialized before creating egui frame.")
             .config;
@@ -285,22 +274,28 @@ impl AppState {
 
 pub struct App {
     state: Option<AppState>,
+    wgpu_object: WgpuObject,
     scene: Scene,
     material_store: MaterialStore,
     texture_store: TextureStore,
+    scene_bind_group_layouts: SceneBindGroupLayoutSet,
 }
 
 impl App {
     pub fn new(
         initial_scene: Scene,
+        wgpu_object: WgpuObject,
+        scene_bind_group_layouts: SceneBindGroupLayoutSet,
         material_store: MaterialStore,
         texture_store: TextureStore,
     ) -> Self {
         Self {
             state: None,
+            wgpu_object: wgpu_object,
             scene: initial_scene,
             material_store: material_store,
             texture_store: texture_store,
+            scene_bind_group_layouts: scene_bind_group_layouts,
         }
     }
 
@@ -321,7 +316,8 @@ impl App {
     }
 
     pub fn insert_material_to_store(&mut self, material_key: String, material: Material) {
-        self.material_store.insert_material(material_key, material);
+        let device = &self.wgpu_object.device;
+        self.material_store.insert_material(material_key, material, device);
     }
 }
 
@@ -340,7 +336,7 @@ impl ApplicationHandler<AppState> for App {
 
         {
             self.state =
-                Some(pollster::block_on(AppState::new(window)).expect(
+                Some(pollster::block_on(AppState::new(window, &self.wgpu_object, &self.scene_bind_group_layouts, self.material_store.material_bind_group_layout(),self.texture_store.texture_sampler_bind_group_layout())).expect(
                     "Failed to block the thread and create the AppState for the application.",
                 ));
         }
@@ -383,22 +379,21 @@ impl ApplicationHandler<AppState> for App {
 
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::Resized(size) => state.resize(size.width, size.height),
+            WindowEvent::Resized(size) => state.resize(size.width, size.height, &mut self.wgpu_object),
             WindowEvent::RedrawRequested => {
                 state.update();
 
-                let mut egui_frame = state.create_egui_frame(event_loop);
+                let mut egui_frame = state.create_egui_frame( &self.wgpu_object,event_loop);
 
                 let renderer_state = &mut state.renderer_state;
-                let wgpu_obj = &mut renderer_state.wgpu_object;
-                let surface_state = wgpu_obj
+                let surface_state = self.wgpu_object
                     .surface_state
                     .as_mut()
                     .expect("Surface state should be initialized before resizing.");
 
-                let bind_group_layouts = &renderer_state.bind_group_layouts;
-                let device = &mut wgpu_obj.device;
-                let queue = &wgpu_obj.queue;
+                let scene_bind_group_layouts = &self.scene_bind_group_layouts;
+                let device = &mut self.wgpu_object.device;
+                let queue = &self.wgpu_object.queue;
 
                 let output_width = surface_state.config.width;
                 let output_height = surface_state.config.height;
@@ -429,74 +424,73 @@ impl ApplicationHandler<AppState> for App {
                 let projection_info = ProjectionInfo::default();
 
                 // TODO: Support rendering multiple models in the scene
-                let model = self
-                    .scene
-                    .models()
-                    .first()
-                    .ok_or_else(|| anyhow::anyhow!("Scene has no models to render!"))
-                    .unwrap();
+                // let model = self
+                //     .scene
+                //     .models()
+                //     .first()
+                //     .ok_or_else(|| anyhow::anyhow!("Scene has no models to render!"))
+                //     .unwrap();
 
-                let face_len = model.face_count();
-                println!(
-                    "Rendering model: {}\n  Vert count: {}\n  Face count: {}",
-                    model.file_path(),
-                    model.vert_count(),
-                    model.face_count()
-                );
+                // let face_len = model.face_count();
+                // println!(
+                //     "Rendering model: {}\n  Vert count: {}\n  Face count: {}",
+                //     model.file_path(),
+                //     model.vert_count(),
+                //     model.face_count()
+                // );
 
-                let temp_mesh = model
-                    .meshes()
-                    .first()
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "Model has no meshes to render! Model file path: {}",
-                            model.file_path()
-                        )
-                    })
-                    .unwrap();
+                // let temp_mesh = model
+                //     .meshes()
+                //     .first()
+                //     .ok_or_else(|| {
+                //         anyhow::anyhow!(
+                //             "Model has no meshes to render! Model file path: {}",
+                //             model.file_path()
+                //         )
+                //     })
+                //     .unwrap();
 
-                let material = temp_mesh
-                    .mat_key()
-                    .and_then(|mat_key| self.material_store.get_material(mat_key));
+                // let material = temp_mesh
+                //     .mat_key()
+                //     .and_then(|mat_key| self.material_store.get_material(mat_key));
 
-                let mut texture_obj: Option<&TextureObject> = None;
+                // let mut texture_obj: Option<&TextureObject> = None;
 
-                if let Some(mat) = material {
-                    if let Some(p) = mat.texture_set.diffuse_map_path.as_ref() {
-                        let full_path = format!("{}/{}", model.model_dir_path(), p);
+                // if let Some(mat) = material {
+                //     if let Some(p) = mat.material.texture_set.diffuse_map_path.as_ref() {
+                //         let full_path = format!("{}/{}", model.model_dir_path(), p);
 
-                        let tex_option = self.texture_store.get_or_load_texture(
-                            &device,
-                            &queue,
-                            full_path.clone(),
-                            wgpu::TextureFormat::Rgba8UnormSrgb,
-                            "Test Texture",
-                        );
+                //         let tex_option = self.texture_store.get_or_load_texture(
+                //             &device,
+                //             &queue,
+                //             full_path.clone(),
+                //             wgpu::TextureFormat::Rgba8UnormSrgb,
+                //             &renderer_state.bind_group_layouts.texture_sampler_bind_group_layout,
+                //             "Test Texture",
+                //         );
 
-                        match tex_option {
-                            Some(tex) => {
-                                println!("Found diffuse texture at: {}", full_path);
-                                texture_obj = Some(tex);
-                            }
-                            None => {
-                                println!("No diffuse texture found at: {}", full_path);
-                            }
-                        }
-                    }
-                }
+                //         match tex_option {
+                //             Some(tex) => {
+                //                 println!("Found diffuse texture at: {}", full_path);
+                //                 texture_obj = Some(tex);
+                //             }
+                //             None => {
+                //                 println!("No diffuse texture found at: {}", full_path);
+                //             }
+                //         }
+                //     }
+                // }
                 let render_payload = render_payload::create_standard_render_payload(
                     device,
-                    model,
-                    bind_group_layouts,
+                    scene_bind_group_layouts,
                     &object_transform,
                     &camera_info,
                     &projection_info,
-                    texture_obj,
                     output_width,
                     output_height,
                 );
 
-                match state.render(&render_payload, 0..(face_len * 3) as u32, &mut egui_frame) {
+                match state.render(&self.scene,&self.wgpu_object,&render_payload,  &mut egui_frame) {
                     Ok(_) => {}
                     Err(e) => {
                         log::error!("{e}");
@@ -519,14 +513,16 @@ impl ApplicationHandler<AppState> for App {
 }
 
 pub fn run(
+    wgpu_state: WgpuObject,
     initial_scene: Scene,
     material_store: MaterialStore,
     texture_store: TextureStore,
+    scene_bind_group_layouts: SceneBindGroupLayoutSet,
 ) -> anyhow::Result<()> {
     env_logger::init();
 
     let event_loop = EventLoop::with_user_event().build()?;
-    let mut app = App::new(initial_scene, material_store, texture_store);
+    let mut app = App::new(initial_scene,wgpu_state, scene_bind_group_layouts,material_store, texture_store);
     event_loop.run_app(&mut app)?;
 
     Ok(())

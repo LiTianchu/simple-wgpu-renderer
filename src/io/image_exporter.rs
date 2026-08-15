@@ -1,6 +1,5 @@
 use crate::ds::{
-    model::{Face, MaterialStore, Scene, TextureObject, TextureStore},
-    transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
+    model::{MaterialStore, Scene, TextureObject, TextureStore}, transformation::{CameraInfo, ObjectTransform, ProjectionInfo}, wgpu_resource::{WgpuObject,SceneBindGroupLayoutSet},
 };
 use crate::render::{factory::render_setup_factory, render_pass, render_payload};
 use crate::utils::copying;
@@ -10,8 +9,10 @@ const BYTES_PER_PIXEL: usize = 4;
 
 pub async fn render_image(
     scene: &Scene,
+    wgpu_object: &WgpuObject,
     material_store: &MaterialStore,
     texture_store: &mut TextureStore,
+    scene_bind_group_layouts: &SceneBindGroupLayoutSet,
     export_dir: impl AsRef<Path>,
     export_file_name: impl Into<String>,
     export_file_ext: impl Into<String>,
@@ -26,15 +27,19 @@ pub async fn render_image(
     );
 
     let renderer_state = render_setup_factory::create_render_setup_raster_standard(
+        wgpu_object,
         vert_shader_path,
         frag_shader_path,
         None,
         (output_width, output_height),
+        scene_bind_group_layouts,
+        material_store.material_bind_group_layout(),
+        texture_store.texture_sampler_bind_group_layout(),
     )
     .await?;
 
-    let device = renderer_state.wgpu_object.device;
-    let queue = renderer_state.wgpu_object.queue;
+    let device = &wgpu_object.device;
+    let queue = &wgpu_object.queue;
 
     // copy_buffer_to_texture requires byte alignment
     let unpadded_bytes_per_row: u32 = output_width * (BYTES_PER_PIXEL as u32);
@@ -106,76 +111,75 @@ pub async fn render_image(
     };
 
     // TODO: Support rendering multiple models in the scene
-    let model = scene
-        .models()
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("Scene has no models to render!"))?;
-    println!(
-        "Rendering model: {}\n  Vert count: {}\n  Face count: {}",
-        model.file_path(),
-        model.vert_count(),
-        model.face_count()
-    );
+    // let model = scene
+    //     .models()
+    //     .first()
+    //     .ok_or_else(|| anyhow::anyhow!("Scene has no models to render!"))?;
+    // println!(
+    //     "Rendering model: {}\n  Vert count: {}\n  Face count: {}",
+    //     model.file_path(),
+    //     model.vert_count(),
+    //     model.face_count()
+    // );
 
-    let temp_mesh = model
-        .meshes()
-        .first()
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Model has no meshes to render! Model file path: {}",
-                model.file_path()
-            )
-        })
-        .unwrap();
+    // let temp_mesh = model
+    //     .meshes()
+    //     .first()
+    //     .ok_or_else(|| {
+    //         anyhow::anyhow!(
+    //             "Model has no meshes to render! Model file path: {}",
+    //             model.file_path()
+    //         )
+    //     })
+    //     .unwrap();
 
-    let material = temp_mesh
-        .mat_key()
-        .and_then(|mat_key| material_store.get_material(mat_key));
+    // let material = temp_mesh
+    //     .mat_key()
+    //     .and_then(|mat_key| material_store.get_material(mat_key));
 
-    let mut texture_obj: Option<&TextureObject> = None;
+    // let mut texture_obj: Option<&TextureObject> = None;
 
     // TODO: Support rendering multiple materials in the model
-    if let Some(mat) = material {
-        if let Some(p) = mat.texture_set.diffuse_map_path.as_ref() {
-            let full_path = format!("{}/{}", model.model_dir_path(), p);
+    // if let Some(mat) = material {
+    //     if let Some(p) = mat.material.texture_set.diffuse_map_path.as_ref() {
+    //         let full_path = format!("{}/{}", model.model_dir_path(), p);
 
-            let tex_option = texture_store.get_or_load_texture(
-                &device,
-                &queue,
-                full_path.clone(),
-                wgpu::TextureFormat::Rgba8UnormSrgb,
-                "Test Texture",
-            );
+    //         let tex_option = texture_store.get_or_load_texture(
+    //             &device,
+    //             &queue,
+    //             full_path.clone(),
+    //             wgpu::TextureFormat::Rgba8UnormSrgb,
+    //             &scene_bind_group_layouts.texture_sampler_bind_group_layout,
+    //             "Test Texture",
+    //         );
 
-            match tex_option {
-                Some(tex) => {
-                    println!("Found diffuse texture at: {}", full_path);
-                    texture_obj = Some(tex);
-                }
-                None => {
-                    println!("No diffuse texture found at: {}", full_path);
-                }
-            }
-        }
-    }
+    //         match tex_option {
+    //             Some(tex) => {
+    //                 println!("Found diffuse texture at: {}", full_path);
+    //                 texture_obj = Some(tex);
+    //             }
+    //             None => {
+    //                 println!("No diffuse texture found at: {}", full_path);
+    //             }
+    //         }
+    //     }
+    // }
 
-    if texture_obj.is_none() {
-        println!("No diffuse texture found for the model. Rendering without texture.");
-    }
+    // if texture_obj.is_none() {
+    //     println!("No diffuse texture found for the model. Rendering without texture.");
+    // }
 
     let render_payload = render_payload::create_standard_render_payload(
         &device,
-        &model,
-        &renderer_state.bind_group_layouts,
+        &scene_bind_group_layouts,
         &object_transform,
         &camera_info,
         &projection_info,
-        texture_obj,
         output_width,
         output_height,
     );
 
-    let faces: Vec<&Face> = model.all_faces_iter().collect();
+    // let faces: Vec<&Face> = model.all_faces_iter().collect();
 
     let submission_index: wgpu::SubmissionIndex = render_pass::render_to_output_buffer(
         &device,
@@ -183,17 +187,13 @@ pub async fn render_image(
         &renderer_state.render_pipeline,
         &render_payload.transform_bind_group,
         &render_payload.light_bind_group,
-        &render_payload.mat_bind_group,
-        render_payload.texture_sampler_bind_group.as_ref(),
-        &render_payload.vertex_buffer,
-        &render_payload.index_buffer,
-        0..(faces.len() * 3) as u32,
         wgpu::Color {
             r: 0.0,
             g: 0.0,
             b: 0.0,
             a: 0.0,
         },
+        scene,
         &color_output_texture,
         &depth_attachment_texture,
         output_width,

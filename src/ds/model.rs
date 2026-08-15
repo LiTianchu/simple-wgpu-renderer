@@ -225,26 +225,39 @@ impl Mesh {
 }
 
 #[derive(Debug, Clone)]
+pub struct MaterialObject {
+    pub material: Material,
+    pub material_bind_group: wgpu::BindGroup,
+}
+
+#[derive(Debug, Clone)]
 pub struct TextureObject {
     pub texture: wgpu::Texture,
     pub texture_view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub texture_bind_group: wgpu::BindGroup,
 }
 
 #[derive(Debug, Clone)]
 pub struct TextureStore {
     textures: HashMap<String, TextureObject>, // file_path -> texture
+    texture_sampler_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl TextureStore {
-    pub fn new() -> Self {
+    pub fn new(texture_sampler_bind_group_layout: wgpu::BindGroupLayout) -> Self {
         Self {
             textures: HashMap::new(),
+            texture_sampler_bind_group_layout,
         }
     }
 
     pub fn textures(&self) -> &HashMap<String, TextureObject> {
         &self.textures
+    }
+
+    pub fn texture_sampler_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.texture_sampler_bind_group_layout
     }
 
     pub fn insert_texture(&mut self, texture_key: String, texture: TextureObject) {
@@ -268,6 +281,7 @@ impl TextureStore {
         queue: &wgpu::Queue,
         texture_file_path: impl Into<String>,
         texture_format: wgpu::TextureFormat,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
         texture_label: impl Into<String>,
     ) -> Option<&TextureObject> {
         let texture_file_path_str = texture_file_path.into();
@@ -342,12 +356,30 @@ impl TextureStore {
                 mipmap_filter: wgpu::MipmapFilterMode::Linear, // pixel art
                 ..Default::default()
             });
+
+
+            let texture_sampler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Texture-Sampler Bind Group"),
+                layout: texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&texture_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&sampler),
+                    },
+                ],
+            });
+
             self.insert_texture(
                 texture_file_path_str.to_string(),
                 TextureObject {
                     texture: wgpu_texture,
                     texture_view,
                     sampler,
+                    texture_bind_group: texture_sampler_bind_group,
                 },
             );
 
@@ -359,29 +391,46 @@ impl TextureStore {
 
 #[derive(Debug, Clone)]
 pub struct MaterialStore {
-    materials: HashMap<String, Material>, // file_path -> material
+    materials: HashMap<String, MaterialObject>, // file_path -> material
+    material_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl MaterialStore {
-    pub fn new() -> Self {
+    pub fn new(material_bind_group_layout: wgpu::BindGroupLayout) -> Self {
         Self {
             materials: HashMap::new(),
+            material_bind_group_layout,
         }
     }
 
-    pub fn materials(&self) -> &HashMap<String, Material> {
+    pub fn materials(&self) -> &HashMap<String, MaterialObject> {
         &self.materials
     }
 
-    pub fn insert_material(&mut self, material_subpath: String, material: Material) {
-        self.materials.insert(material_subpath, material);
+    pub fn material_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.material_bind_group_layout
     }
 
-    pub fn get_material(&self, material_key: impl Into<String>) -> Option<&Material> {
+    pub fn insert_material(&mut self, material_key: String, material: Material, device: &wgpu::Device) {
+        if self.get_material(material_key.clone()).is_none() {
+            let mat_obj = MaterialObject{
+                material: material,
+                material_bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: Some("Material Bind Group"),
+                    layout: &self.material_bind_group_layout,
+                    entries: &[],
+                }),
+            };
+
+        self.materials.insert(material_key, mat_obj);
+        }
+    }
+
+    pub fn get_material(&self, material_key: impl Into<String>) -> Option<&MaterialObject> {
         self.materials.get(&material_key.into())
     }
 
-    pub fn get_material_mut(&mut self, material_key: impl Into<String>) -> Option<&mut Material> {
+    pub fn get_material_mut(&mut self, material_key: impl Into<String>) -> Option<&mut MaterialObject> {
         self.materials.get_mut(&material_key.into())
     }
 }
@@ -505,6 +554,9 @@ impl Scene {
 
     pub fn models(&self) -> &[Model] {
         &self.models
+    }
+    pub fn models_iter(&self) -> impl Iterator<Item = &Model> {
+        self.models.iter()
     }
 
     pub fn models_mut(&mut self) -> &mut [Model] {

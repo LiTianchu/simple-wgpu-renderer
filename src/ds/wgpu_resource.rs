@@ -127,9 +127,7 @@ impl WgpuObject {
 
 #[derive(Debug)]
 pub struct RendererState {
-    pub wgpu_object: WgpuObject,
     pub render_pipeline: wgpu::RenderPipeline,
-    pub bind_group_layouts: BindGroupLayoutState,
     pub frag_texture_format: wgpu::TextureFormat,
     pub depth_attachment_texture: wgpu::Texture,
 }
@@ -142,9 +140,7 @@ pub struct SurfaceState {
 }
 
 #[derive(Debug, Clone)]
-pub struct BindGroupLayoutState {
+pub struct SceneBindGroupLayoutSet {
     pub transform_bind_group_layout: wgpu::BindGroupLayout,
     pub light_bind_group_layout: wgpu::BindGroupLayout,
-    pub material_bind_group_layout: wgpu::BindGroupLayout,
-    pub texture_sampler_bind_group_layout: wgpu::BindGroupLayout,
 }

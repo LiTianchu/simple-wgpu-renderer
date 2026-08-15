@@ -1,19 +1,20 @@
 use std::path::Path;
 
 use crate::ds::model::{
-    Material, MaterialAttributeSet, MaterialStore, Mesh, Model, Scene, TextureSet, Vertex,
+    Material, MaterialAttributeSet, MaterialObject, MaterialStore, Mesh, Model, Scene, TextureSet, Vertex,
 };
 use std::path::PathBuf;
 
 pub fn load_obj_models_to_scene(
     paths: Vec<PathBuf>,
     material_cache: &mut MaterialStore,
+    device: &wgpu::Device,
 ) -> Option<Scene> {
     let mut loaded_scene = Scene::new();
     for p in paths {
         let mut loaded_model = Model::new();
         println!("Loading: {}", p.to_string_lossy());
-        match collect_obj_model_data(p.to_string_lossy(), &mut loaded_model, material_cache).ok() {
+        match collect_obj_model_data(p.to_string_lossy(), &mut loaded_model, material_cache, device).ok() {
             Some(_) => {}
             None => return None,
         }
@@ -25,10 +26,11 @@ pub fn load_obj_models_to_scene(
 pub fn load_obj_model(
     path_str: impl Into<String>,
     material_cache: &mut MaterialStore,
+    device: &wgpu::Device,
 ) -> Option<Model> {
     let mut loaded_model = Model::new();
 
-    match collect_obj_model_data(path_str, &mut loaded_model, material_cache).ok() {
+    match collect_obj_model_data(path_str, &mut loaded_model, material_cache, device).ok() {
         Some(_) => {}
         None => return None,
     }
@@ -40,6 +42,7 @@ pub fn collect_obj_model_data(
     path_str: impl Into<String>,
     model: &mut Model,
     material_cache: &mut MaterialStore,
+    device: &wgpu::Device,
 ) -> anyhow::Result<()> {
     let path_str = path_str.into();
     println!("Starting to collect OBJ model data at: {}", path_str);
@@ -273,7 +276,8 @@ pub fn collect_obj_model_data(
             mat_full_path.to_string_lossy()
         );
 
-        material_cache.insert_material(mat_full_path.to_string_lossy().to_string(), material);
+
+        material_cache.insert_material(mat_full_path.to_string_lossy().to_string(), material, &device);
     }
     Ok(())
 }

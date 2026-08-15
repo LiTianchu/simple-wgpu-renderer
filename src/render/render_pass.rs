@@ -1,18 +1,23 @@
+use crate::ds::model::Scene;
+
 pub fn render_to_output_buffer(
     // WGPU Resources
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     pipeline: &wgpu::RenderPipeline,
 
-    // Drawing Resources
+    // Global Drawing Resources
     transform_bind_group: &wgpu::BindGroup,
     light_bind_group: &wgpu::BindGroup,
-    mat_bind_group: &wgpu::BindGroup,
-    texture_sampler_bind_group: Option<&wgpu::BindGroup>,
-    vertex_buffer: &wgpu::Buffer,
-    index_buffer: &wgpu::Buffer,
-    draw_indices: std::ops::Range<u32>,
     clear_color: wgpu::Color,
+
+    // Model Specific Drawing Resources
+    // mat_bind_group: &wgpu::BindGroup,
+    // texture_sampler_bind_group: Option<&wgpu::BindGroup>,
+    // vertex_buffer: &wgpu::Buffer,
+    // index_buffer: &wgpu::Buffer,
+    // draw_indices: std::ops::Range<u32>,
+    scene: &Scene,
 
     // Output Description
     color_output_texture: &wgpu::Texture,
@@ -71,21 +76,33 @@ pub fn render_to_output_buffer(
         let mut render_pass: wgpu::RenderPass =
             command_encoder.begin_render_pass(&render_pass_descriptor);
         render_pass.set_pipeline(&pipeline);
-        render_pass.set_bind_group(0, transform_bind_group, &[]);
-        println!("Setting transform bind group");
-        render_pass.set_bind_group(1, light_bind_group, &[]);
-        println!("Setting light bind groups");
-        render_pass.set_bind_group(2, mat_bind_group, &[]);
-        println!("Setting material bind group");
 
-        if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
-            render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
-            println!("Setting texture sampler bind group");
-        }
-        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        println!("Drawing {} indices", draw_indices.len());
-        render_pass.draw_indexed(draw_indices, 0, 0..1);
+
+        // ============ Draw Call ============
+        // for model in scene.models_iter() {
+        //     model.meshes
+
+
+        // }
+
+        // render_pass.set_bind_group(0, transform_bind_group, &[]);
+        // println!("Setting transform bind group");
+        // render_pass.set_bind_group(1, light_bind_group, &[]);
+        // println!("Setting light bind groups");
+        // render_pass.set_bind_group(2, mat_bind_group, &[]);
+        // println!("Setting material bind group");
+
+        // if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
+        //     render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
+        //     println!("Setting texture sampler bind group");
+        // }
+        // render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        // render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        // println!("Drawing {} indices", draw_indices.len());
+        // render_pass.draw_indexed(draw_indices, 0, 0..1);
+
+        // ============ End Draw Call ============
+
     }
 
     command_encoder.copy_texture_to_buffer(
@@ -125,12 +142,8 @@ pub fn render_to_screen(
     // Drawing resources
     transform_bind_group: &wgpu::BindGroup,
     light_bind_group: &wgpu::BindGroup,
-    mat_bind_group: &wgpu::BindGroup,
-    texture_sampler_bind_group: Option<&wgpu::BindGroup>,
-    vertex_buffer: &wgpu::Buffer,
-    index_buffer: &wgpu::Buffer,
-    draw_indices: std::ops::Range<u32>,
     clear_color: wgpu::Color,
+    scene: &Scene,
 
     // Attachment
     depth_output_texture: &wgpu::Texture,
@@ -204,22 +217,22 @@ pub fn render_to_screen(
         });
 
         render_pass.set_pipeline(render_pipeline);
-        render_pass.set_bind_group(0, transform_bind_group, &[]);
-        println!("Setting transform bind group");
-        render_pass.set_bind_group(1, light_bind_group, &[]);
-        println!("Setting light bind group");
-        render_pass.set_bind_group(2, mat_bind_group, &[]);
-        println!("Setting material bind group");
+        // render_pass.set_bind_group(0, transform_bind_group, &[]);
+        // println!("Setting transform bind group");
+        // render_pass.set_bind_group(1, light_bind_group, &[]);
+        // println!("Setting light bind group");
+        // render_pass.set_bind_group(2, mat_bind_group, &[]);
+        // println!("Setting material bind group");
 
-        if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
-            println!("Setting texture sampler bind group");
-            render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
-        }
+        // if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
+        //     println!("Setting texture sampler bind group");
+        //     render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
+        // }
 
-        render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        println!("Drawing {} indices", draw_indices.len());
-        render_pass.draw_indexed(draw_indices, 0, 0..1);
+        // render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+        // render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        // println!("Drawing {} indices", draw_indices.len());
+        // render_pass.draw_indexed(draw_indices, 0, 0..1);
     }
 
     // egui command buffer
