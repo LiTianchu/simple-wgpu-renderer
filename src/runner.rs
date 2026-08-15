@@ -110,6 +110,27 @@ impl AppState {
             );
 
             surface_state.is_surface_configured = true;
+
+            // recreate depth texture with the new window size
+            let depth_attachment_texture_descriptor = wgpu::TextureDescriptor {
+                label: Some("Output Depth Texture"),
+                size: wgpu::Extent3d {
+                    width: width,
+                    height: height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Depth32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
+            };
+
+            let depth_attachment_texture: wgpu::Texture =
+                self.renderer_state.wgpu_object.device.create_texture(&depth_attachment_texture_descriptor);
+
+            self.renderer_state.depth_attachment_texture = depth_attachment_texture;
         }
     }
 
