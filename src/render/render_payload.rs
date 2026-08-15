@@ -15,6 +15,7 @@ pub struct RenderPayload {
     pub light_bind_group: wgpu::BindGroup,
 }
 
+// TODO: this should be factored out
 pub fn create_standard_render_payload(
     device: &wgpu::Device,
     scene_bind_group_layouts: &SceneBindGroupLayoutSet,

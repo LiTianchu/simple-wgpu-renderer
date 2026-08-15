@@ -1,7 +1,6 @@
-use crate::{render::factory::buffer_factory,ds::uniform::MaterialUniform, io::file_op};
+use crate::{render::factory::{bind_group_factory,buffer_factory}, io::file_op, utils::copying};
 use std::collections::HashMap;
 use std::mem;
-use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -235,12 +234,13 @@ pub struct MaterialObject {
     pub material_bind_group: wgpu::BindGroup,
 }
 
+
 #[derive(Debug, Clone)]
 pub struct TextureObject {
     pub texture: wgpu::Texture,
     pub texture_view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
-    pub texture_sampler_bind_group: wgpu::BindGroup,
+    pub texture_sampler_bind_group: wgpu::BindGroup, // might need to recompute when render pipeline changes with diff shader uniform layout
 }
 
 #[derive(Debug, Clone)]
@@ -276,7 +276,7 @@ impl TextureStore {
 
         Self {
             textures: HashMap::new(),
-            texture_sampler_bind_group_layout,
+            texture_sampler_bind_group_layout: texture_sampler_bind_group_layout,
         }
     }
 
@@ -286,6 +286,10 @@ impl TextureStore {
 
     pub fn texture_sampler_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.texture_sampler_bind_group_layout
+    }
+
+    pub fn set_texture_sampler_bind_group_layout(&mut self, layout: wgpu::BindGroupLayout) {
+        self.texture_sampler_bind_group_layout = layout;
     }
 
     pub fn insert_texture(&mut self, texture_key: String, texture: TextureObject) {
@@ -355,21 +359,8 @@ impl TextureStore {
             let wgpu_texture = device.create_texture(&texture_descriptor);
 
             // NOTE: write_texture does not require byte alignment
-            queue.write_texture(
-                wgpu::TexelCopyTextureInfo {
-                    texture: &wgpu_texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                &texture_img_rgba,
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(4 * dimensions.0),
-                    rows_per_image: Some(dimensions.1),
-                },
-                texture_size,
-            );
+            copying::write_texture_rgba(&queue, &wgpu_texture, dimensions, &texture_img_rgba);
+
             let texture_view = wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
             // NOTE: there are some model's UV is more than 1.0 meant for repeating
@@ -384,20 +375,13 @@ impl TextureStore {
                 ..Default::default()
             });
 
-            let texture_sampler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("Texture-Sampler Bind Group"),
-                layout: &self.texture_sampler_bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&sampler),
-                    },
-                ],
-            });
+            let texture_sampler_bind_group = bind_group_factory::create_texture_sampler_bind_group(
+                &device,
+                &texture_view,
+                &sampler,
+                &self.texture_sampler_bind_group_layout,
+                &format!("{} Texture-Sampler Bind Group", &texture_label),
+            );
 
             self.insert_texture(
                 texture_file_path_str.to_string(),
@@ -419,6 +403,7 @@ impl TextureStore {
 pub struct MaterialStore {
     materials: HashMap<String, MaterialObject>, // file_path -> material
     material_bind_group_layout: wgpu::BindGroupLayout,
+    default_material: MaterialObject,
 }
 
 impl MaterialStore {
@@ -438,9 +423,19 @@ impl MaterialStore {
                 }],
             });
 
+        let default_mat = Material::new();
+
+        let default_mat_bind_group = bind_group_factory::create_material_bind_group(device, &default_mat, &material_bind_group_layout, "Default Material Bind Group");
+
+        let default_mat_obj = MaterialObject {
+            material: default_mat,
+            material_bind_group: default_mat_bind_group,
+        };
+
         Self {
             materials: HashMap::new(),
             material_bind_group_layout,
+            default_material: default_mat_obj,
         }
     }
 

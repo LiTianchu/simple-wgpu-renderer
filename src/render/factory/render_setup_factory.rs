@@ -38,6 +38,7 @@ pub async fn create_render_setup_raster_standard(
         .device
         .create_texture(&depth_attachment_texture_descriptor);
 
+    // TODO: Make render pipeline owns texture bind group layout configuration
     let pipeline = render_pipeline_factory::create_render_pipeline_raster(
         &wgpu_state.device,
         &texture_format,

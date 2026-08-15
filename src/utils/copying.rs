@@ -47,3 +47,28 @@ pub fn buffer_slice_to_byte_array(
     drop(mapped_data);
     Ok(output_img_pixels)
 }
+
+
+pub fn write_texture_rgba(queue: &wgpu::Queue, write_target_texture: &wgpu::Texture, img_pixel_dimensions: (u32, u32), rgba_data: &[u8]) {
+    let texture_size = wgpu::Extent3d {
+        width: img_pixel_dimensions.0,
+        height: img_pixel_dimensions.1,
+        depth_or_array_layers: 1,
+    };
+
+    queue.write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: &write_target_texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        &rgba_data,
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * img_pixel_dimensions.0),
+            rows_per_image: Some(img_pixel_dimensions.1),
+        },
+        texture_size,
+    );
+}
