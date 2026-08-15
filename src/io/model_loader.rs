@@ -208,7 +208,7 @@ pub fn collect_obj_model_data(
 
         let material = Material {
             mat_attr: MaterialAttributeSet {
-                k_ambient: ambient,
+                k_ambient: ambient, // ignored by material uniform buffer
                 k_diffuse: diffuse,
                 k_specular: specular,
                 k_emissive: emissive,

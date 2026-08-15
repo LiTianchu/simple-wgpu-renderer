@@ -1,4 +1,4 @@
-use crate::{ds::uniform::MaterialUniform, io::file_op};
+use crate::{render::factory::buffer_factory,ds::uniform::MaterialUniform, io::file_op};
 use std::collections::HashMap;
 use std::mem;
 use wgpu::util::DeviceExt;
@@ -459,25 +459,9 @@ impl MaterialStore {
         device: &wgpu::Device,
     ) {
         if self.get_material(material_key.clone()).is_none() {
-            // create a new material bind group if material is not already stored
-            let diffuse = material
-                .mat_attr
-                .k_diffuse
-                .map(|channel| (channel.clamp(0.0, 1.0) * u8::MAX as f32).round() as u8);
-
-            let alpha = (material.mat_attr.dissolve.clamp(0.0, 1.0) * u8::MAX as f32).round() as u8;
-
-            // TODO: fill in the rest of the material uniforms
-            let material_uniform = MaterialUniform {
-                base_color: u32::from_be_bytes([diffuse[0], diffuse[1], diffuse[2], alpha]),
-            };
-
-            let material_uniform_buffer =
-                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Material Uniform Buffer"),
-                    contents: bytemuck::bytes_of(&material_uniform),
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                });
+            let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
+                device,&material
+            );
 
             let mat_obj = MaterialObject {
                 material,

@@ -17,7 +17,6 @@ pub struct RenderPayload {
 
 pub fn create_standard_render_payload(
     device: &wgpu::Device,
-    // model: &Model,
     scene_bind_group_layouts: &SceneBindGroupLayoutSet,
     object_transform: &ObjectTransform,
     camera_info: &CameraInfo,

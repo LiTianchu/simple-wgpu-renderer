@@ -6,8 +6,14 @@ struct TransformUniforms {
 struct LightingUniforms {
     wc_light_direction: vec3<f32>}
 
-struct MaterialUniforms {
-    base_color: u32}
+    struct MaterialUniforms {
+        k_diffuse: u32,
+        k_specular: u32,
+        k_emissive: u32,
+        index_of_refraction: f32,
+        shininess: f32,
+        dissolve: f32,
+        illumination_model: f32}
 
 // uniform passed from CPU
 // Transform
@@ -75,12 +81,13 @@ fn fs_main(interp: V2F, @builtin(front_facing) is_front_facing: bool) -> @locati
     let light_intensity = max(dot(normal, normalize(light.wc_light_direction)), 0.0);
 
     // assume base color is packed in big-endian RGBA format
-    let r = f32((material.base_color >> 24) & 0xFF) / 255.0;
-    let g = f32((material.base_color >> 16) & 0xFF) / 255.0;
-    let b = f32((material.base_color >> 8) & 0xFF) / 255.0;
-    let a = f32(material.base_color & 0xFF) / 255.0;
+    let dr = f32((material.k_diffuse >> 24) & 0xFF) / 255.0;
+    let dg = f32((material.k_diffuse >> 16) & 0xFF) / 255.0;
+    let db = f32((material.k_diffuse >> 8) & 0xFF) / 255.0;
+    let da = f32(material.k_diffuse & 0xFF) / 255.0;
 
+    let diffuse_color = vec4<f32>(dr, dg, db, da);
     let tex_color = textureSample(t_diffuse, s_diffuse, interp.uv);
 
-    return vec4<f32>(tex_color.rgb * light_intensity, tex_color.a);
+    return vec4<f32>(tex_color.rgb * light_intensity, tex_color.a) * diffuse_color;
 }

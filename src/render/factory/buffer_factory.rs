@@ -1,5 +1,6 @@
 use crate::{
     ds::{
+        model::Material,
         transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
         uniform::{LightUniform, MaterialUniform},
     },
@@ -54,10 +55,17 @@ pub fn create_light_uniform_buffer(device: &wgpu::Device, light_direction: Vec3)
 
 pub fn create_material_uniform_buffer(
     device: &wgpu::Device,
-    base_color_rgba: [u8; 4],
+    material: &Material
 ) -> wgpu::Buffer {
+    // k_ambient is ignored by material uniform buffer
     let material_uniform = MaterialUniform {
-        base_color: u32::from_be_bytes(base_color_rgba),
+        k_diffuse: pack_color(material.mat_attr.k_diffuse),
+        k_specular: pack_color(material.mat_attr.k_specular),
+        k_emissive: pack_color(material.mat_attr.k_emissive),
+        index_of_refraction: material.mat_attr.index_of_refraction,
+        shininess: material.mat_attr.shininess,
+        dissolve: material.mat_attr.dissolve,
+        illumination_model: material.mat_attr.illumination_model,
     };
 
     let descriptor = wgpu::util::BufferInitDescriptor {
@@ -66,4 +74,9 @@ pub fn create_material_uniform_buffer(
         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     };
     device.create_buffer_init(&descriptor)
+}
+
+fn pack_color(c: [f32; 3]) -> u32 {
+    let [r, g, b] = c.map(|v| (v * 255.0) as u8);
+    u32::from_be_bytes([r, g, b, 255]) // 255 = alpha/pad byte
 }
