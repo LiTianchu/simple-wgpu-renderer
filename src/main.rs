@@ -1,23 +1,15 @@
+use my_renderer::constants;
 use my_renderer::ds::model::{MaterialStore, Scene, TextureStore};
 use my_renderer::io::{file_op, image_exporter, model_loader};
 use my_renderer::runner::run;
 use std::env;
-
-const IMAGE_EXPORT_DIR: &str = "./output";
-const IMAGE_FILE_NAME: &str = "render";
-const IMAGE_FILE_FORMAT: &str = "png";
-const DEMO_VERT_SHADER_PATH: &str = "./src/shaders/uv.wgsl";
-const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/uv.wgsl";
-const DEFAULT_MODEL_PATH: &str = "./assets/obj/cube/cube.obj";
-const IMAGE_EXPORT_WIDTH: u32 = 1280;
-const IMAGE_EXPORT_HEIGHT: u32 = 800;
 
 fn main() -> anyhow::Result<()> {
     let arg_list: Vec<String> = env::args().collect();
     let arg_len = arg_list.len();
 
     let mut window_mode = false;
-    let mut model_path = DEFAULT_MODEL_PATH.to_string();
+    let mut model_path = constants::DEFAULT_MODEL_PATH.to_string();
 
     let loaded_scene: Scene;
     for i in 0..arg_len {
@@ -58,12 +50,12 @@ fn main() -> anyhow::Result<()> {
         Ok(())
     } else {
         // export image
-        let image_export_dir = std::path::Path::new(IMAGE_EXPORT_DIR);
+        let image_export_dir = std::path::Path::new(constants::IMAGE_EXPORT_DIR);
 
         if !image_export_dir.exists() {
             std::fs::create_dir(image_export_dir).expect(&format!(
                 "Failed to create output directory: {:?}",
-                IMAGE_EXPORT_DIR
+                constants::IMAGE_EXPORT_DIR
             ));
         }
 
@@ -73,12 +65,12 @@ fn main() -> anyhow::Result<()> {
             &material_store,
             &mut texture_store,
             image_export_dir,
-            IMAGE_FILE_NAME,
-            IMAGE_FILE_FORMAT,
-            DEMO_VERT_SHADER_PATH,
-            DEMO_FRAG_SHADER_PATH,
-            IMAGE_EXPORT_WIDTH,
-            IMAGE_EXPORT_HEIGHT,
+            constants::IMAGE_FILE_NAME,
+            constants::IMAGE_FILE_FORMAT,
+            constants::TEXTURED_VERT_SHADER_PATH,
+            constants::TEXTURED_FRAG_SHADER_PATH,
+            constants::IMAGE_EXPORT_WIDTH,
+            constants::IMAGE_EXPORT_HEIGHT,
         ))?;
         Ok(())
     }

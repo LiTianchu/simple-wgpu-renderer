@@ -1,3 +1,4 @@
+use crate::constants;
 use crate::ds::model::{MaterialStore, TextureObject, TextureStore};
 use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::viewer::{EguiFrame, Screen, ViewerState};
@@ -9,7 +10,6 @@ use crate::render::{factory::render_setup_factory, render_pass, render_payload};
 use glam::Vec3;
 use std::sync::Arc;
 
-use winit::dpi::PhysicalSize;
 use winit::{
     application::ApplicationHandler,
     event::*,
@@ -17,10 +17,6 @@ use winit::{
     keyboard::{KeyCode, PhysicalKey},
     window::Window,
 };
-
-const DEMO_VERT_SHADER_PATH: &str = "./src/shaders/textured.wgsl";
-const DEMO_FRAG_SHADER_PATH: &str = "./src/shaders/textured.wgsl";
-const WINDOW_PHYSICAL_SIZE: PhysicalSize<u32> = PhysicalSize::new(1280, 800);
 
 pub struct AppState {
     window: Arc<Window>,
@@ -35,8 +31,8 @@ impl AppState {
     pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
         let size = window.inner_size();
         let renderer_state = render_setup_factory::create_render_setup_raster_standard(
-            DEMO_VERT_SHADER_PATH,
-            DEMO_FRAG_SHADER_PATH,
+            constants::TEXTURED_VERT_SHADER_PATH,
+            constants::TEXTURED_FRAG_SHADER_PATH,
             Some(Screen {
                 window: window.clone(),
                 window_inner_width: size.width,
@@ -311,7 +307,7 @@ impl ApplicationHandler<AppState> for App {
         #[allow(unused_mut)]
         let mut window_attributes = Window::default_attributes()
             .with_title("My Renderer")
-            .with_inner_size(WINDOW_PHYSICAL_SIZE);
+            .with_inner_size(constants::WINDOW_PHYSICAL_SIZE);
 
         let window = Arc::new(
             event_loop
