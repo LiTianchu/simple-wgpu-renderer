@@ -163,11 +163,29 @@ impl AppState {
             a: 1.0,
         };
 
+        let color_output_surface_texture = match surface_state.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
+            wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
+            wgpu::CurrentSurfaceTexture::Timeout
+            | wgpu::CurrentSurfaceTexture::Occluded
+            | wgpu::CurrentSurfaceTexture::Validation => {
+                // skip this frame
+                return Ok(());
+            }
+            wgpu::CurrentSurfaceTexture::Outdated => {
+                surface_state
+                    .surface
+                    .configure(&wgpu_object.device, &surface_state.config);
+                return Ok(());
+            }
+            wgpu::CurrentSurfaceTexture::Lost => {
+                panic!("Device is lost during window render!")
+            }
+        };
+
         let _submission_index = render_pass::render_to_screen(
             &wgpu_object.device,
             &wgpu_object.queue,
-            &surface_state.surface,
-            &surface_state.config,
             &render_pipeline,
             transform_bind_group,
             light_bind_group,
@@ -177,6 +195,7 @@ impl AppState {
             material_store,
             texture_store,
             scene,
+            color_output_surface_texture,
             &self.renderer_state.depth_attachment_texture,
             &mut self.egui_renderer,
             egui_frame.paint_jobs.as_slice(),

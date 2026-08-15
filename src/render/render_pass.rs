@@ -1,6 +1,6 @@
-use anyhow::{Context, anyhow};
+use anyhow::{Context};
 
-use crate::ds::model::{Face, MaterialStore, Scene, TextureStore, Vertex};
+use crate::ds::model::{Face, MaterialStore, Mesh, Model, Scene, TextureStore, Vertex};
 
 pub fn render_to_output_buffer(
     // WGPU Resources
@@ -87,79 +87,23 @@ pub fn render_to_output_buffer(
 
         for model in scene.models_iter() {
             for mesh in model.meshes().iter() {
-                // ============ Draw Call ============
-                // TODO: Handle no material situation (default material generation)
-                let mat_key = mesh.mat_key().unwrap();
-                let mat_obj = material_store.get_material(mat_key).unwrap();
-                let mat_bind_group = &mat_obj.material_bind_group;
-
-                // TODO: Handle no texture situation (default texture generation)
-                // TODO: Handle multiple texture types (normal, specular, shininess)
-                let diffuse_texture_sub_path = mat_obj
-                    .material
-                    .texture_set
-                    .diffuse_map_path
-                    .as_ref()
-                    .ok_or("Diffuse map path not found")
-                    .map_err(|e| anyhow!("Error occurred while loading diffuse texture: {}", e))?;
-                let diffuse_texture_full_path =
-                    format!("{}/{}", model.model_dir_path(), diffuse_texture_sub_path);
-
-                let texture_label = format!(
-                    "{}-{}-{}",
-                    model.file_path(),
-                    mat_key,
-                    diffuse_texture_sub_path
-                );
-                let texture_obj = texture_store
-                    .get_or_load_texture(
-                        device,
-                        queue,
-                        diffuse_texture_full_path.clone(),
-                        wgpu::TextureFormat::Rgba8Unorm,
-                        texture_label,
-                    )
-                    .with_context(|| {
-                        format!(
-                            "Failed to load texture: {}",
-                            diffuse_texture_full_path.clone()
-                        )
-                    })?;
-                let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
-
-                render_pass.set_bind_group(0, transform_bind_group, &[]);
-                render_pass.set_bind_group(1, light_bind_group, &[]);
-                render_pass.set_bind_group(2, mat_bind_group, &[]);
-
-                render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
-
-                // write buffer
-                queue.write_buffer(
+                draw(
+                    device,
+                    queue,
+                    model,
+                    mesh,
+                    material_store,
+                    texture_store,
+                    &mut render_pass,
                     vertex_buffer,
-                    vertex_buffer_offset,
-                    bytemuck::cast_slice(mesh.verts()),
-                );
-                queue.write_buffer(
                     index_buffer,
-                    index_buffer_offset,
-                    bytemuck::cast_slice(mesh.faces()),
-                );
-                vertex_buffer_offset +=
-                    (std::mem::size_of::<Vertex>() * mesh.verts().len()) as wgpu::BufferAddress;
-                index_buffer_offset +=
-                    (std::mem::size_of::<Face>() * mesh.faces().len()) as wgpu::BufferAddress;
-
-                render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(
-                    index_count_offset..(index_count_offset + mesh.draw_indices()),
-                    base_vertex,
-                    0..1,
-                );
-                index_count_offset += mesh.draw_indices();
-
-                base_vertex += mesh.verts().len() as i32
-                // ============ End Draw Call ============
+                    &mut vertex_buffer_offset,
+                    &mut index_buffer_offset,
+                    &mut index_count_offset,
+                    &mut base_vertex,
+                    transform_bind_group,
+                    light_bind_group,
+                )?;
             }
         }
     }
@@ -194,8 +138,6 @@ pub fn render_to_screen(
     // WGPU resources
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    surface: &wgpu::Surface,
-    surface_config: &wgpu::SurfaceConfiguration,
     render_pipeline: &wgpu::RenderPipeline,
 
     // Drawing resources
@@ -210,6 +152,7 @@ pub fn render_to_screen(
     scene: &Scene,
 
     // Attachment
+    color_output_surface_texture: wgpu::SurfaceTexture,
     depth_output_texture: &wgpu::Texture,
 
     // UI
@@ -217,26 +160,8 @@ pub fn render_to_screen(
     paint_jobs: &[egui::ClippedPrimitive],
     textures_delta: &mut egui::TexturesDelta,
     screen_descriptor: &egui_wgpu::ScreenDescriptor,
-) -> Option<wgpu::SubmissionIndex> {
-    let output = match surface.get_current_texture() {
-        wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
-        wgpu::CurrentSurfaceTexture::Suboptimal(surface_texture) => surface_texture,
-        wgpu::CurrentSurfaceTexture::Timeout
-        | wgpu::CurrentSurfaceTexture::Occluded
-        | wgpu::CurrentSurfaceTexture::Validation => {
-            // skip this frame
-            return None;
-        }
-        wgpu::CurrentSurfaceTexture::Outdated => {
-            surface.configure(device, surface_config);
-            return None;
-        }
-        wgpu::CurrentSurfaceTexture::Lost => {
-            panic!("Device is lost during window render!")
-        }
-    };
-
-    let view = output
+) -> anyhow::Result<wgpu::SubmissionIndex> {
+    let view = color_output_surface_texture
         .texture
         .create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -287,73 +212,23 @@ pub fn render_to_screen(
         let mut base_vertex: i32 = 0;
         for model in scene.models_iter() {
             for mesh in model.meshes().iter() {
-                // ============ Draw Call ============
-                // TODO: Handle no material situation (default material generation)
-                let mat_key = mesh.mat_key().unwrap();
-                let mat_obj = material_store.get_material(mat_key).unwrap();
-                let mat_bind_group = &mat_obj.material_bind_group;
-
-                // TODO: Handle no texture situation (default texture generation)
-                // TODO: Handle multiple texture types (normal, specular, shininess)
-                let diffuse_texture_sub_path =
-                    mat_obj.material.texture_set.diffuse_map_path.as_ref()?;
-                let diffuse_texture_full_path =
-                    format!("{}/{}", model.model_dir_path(), diffuse_texture_sub_path);
-
-                let texture_label = format!(
-                    "{}-{}-{}",
-                    model.file_path(),
-                    mat_key,
-                    diffuse_texture_sub_path
-                );
-                let texture_obj = texture_store
-                    .get_or_load_texture(
-                        device,
-                        queue,
-                        diffuse_texture_full_path.clone(),
-                        wgpu::TextureFormat::Rgba8Unorm,
-                        texture_label,
-                    )
-                    .with_context(|| {
-                        format!(
-                            "Failed to load texture: {}",
-                            diffuse_texture_full_path.clone()
-                        )
-                    })
-                    .ok()?;
-                let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
-
-                render_pass.set_bind_group(0, transform_bind_group, &[]);
-                render_pass.set_bind_group(1, light_bind_group, &[]);
-                render_pass.set_bind_group(2, mat_bind_group, &[]);
-
-                render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
-                // write buffer
-                queue.write_buffer(
+                draw(
+                    device,
+                    queue,
+                    model,
+                    mesh,
+                    material_store,
+                    texture_store,
+                    &mut render_pass,
                     vertex_buffer,
-                    vertex_buffer_offset,
-                    bytemuck::cast_slice(mesh.verts()),
-                );
-                queue.write_buffer(
                     index_buffer,
-                    index_buffer_offset,
-                    bytemuck::cast_slice(mesh.faces()),
-                );
-                vertex_buffer_offset +=
-                    (std::mem::size_of::<Vertex>() * mesh.verts().len()) as wgpu::BufferAddress;
-                index_buffer_offset +=
-                    (std::mem::size_of::<Face>() * mesh.faces().len()) as wgpu::BufferAddress;
-
-                render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-                render_pass.draw_indexed(
-                    index_count_offset..(index_count_offset + mesh.draw_indices()),
-                    base_vertex,
-                    0..1,
-                );
-                index_count_offset += mesh.draw_indices();
-                base_vertex += mesh.verts().len() as i32
-                // ============ End Draw Call ============
+                    &mut vertex_buffer_offset,
+                    &mut index_buffer_offset,
+                    &mut index_count_offset,
+                    &mut base_vertex,
+                    transform_bind_group,
+                    light_bind_group,
+                )?;
             }
         }
     }
@@ -391,10 +266,111 @@ pub fn render_to_screen(
     // submit both 3D pass and UI pass
     let submission_index = queue.submit(user_command_buffers.into_iter().chain([encoder.finish()]));
 
-    queue.present(output);
+    queue.present(color_output_surface_texture);
     for id in textures_delta.free.drain() {
         egui_renderer.free_texture(&id);
     }
 
-    Some(submission_index)
+    Ok(submission_index)
+}
+
+fn draw(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    model: &Model,
+    mesh: &Mesh,
+    material_store: &MaterialStore,
+    texture_store: &mut TextureStore,
+    render_pass: &mut wgpu::RenderPass,
+    vertex_buffer: &wgpu::Buffer,
+    index_buffer: &wgpu::Buffer,
+    vertex_buffer_offset: &mut wgpu::BufferAddress,
+    index_buffer_offset: &mut wgpu::BufferAddress,
+    index_count_offset: &mut u32,
+    base_vertex: &mut i32,
+    transform_bind_group: &wgpu::BindGroup,
+    light_bind_group: &wgpu::BindGroup,
+) -> anyhow::Result<()> {
+    // ============ Draw Call ============
+    let mut mat_obj = material_store.default_material();
+
+    if let Some(mat_key) = mesh.mat_key() {
+        mat_obj = material_store.get_material(mat_key).expect(&format!(
+            "Material with key: {} not found, something went wrong when loading materials!",
+            mat_key
+        ));
+    }
+
+    let mat_bind_group = &mat_obj.material_bind_group;
+
+    // TODO: Handle no texture situation (default texture generation)
+    // TODO: Handle multiple texture types (normal, specular, shininess)
+    let diffuse_texture_sub_path = mat_obj
+        .material
+        .texture_set
+        .diffuse_map_path
+        .as_ref()
+        .ok_or(format!(
+            "Diffuse texture does not exist for model at: {}",
+            model.file_path()
+        ))
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    let diffuse_texture_full_path =
+        format!("{}/{}", model.model_dir_path(), diffuse_texture_sub_path);
+
+    let default_mat_label = String::from("default_material");
+    let texture_label = format!(
+        "{}-{}-{}",
+        model.file_path(),
+        mesh.mat_key().unwrap_or(&default_mat_label),
+        diffuse_texture_sub_path
+    );
+    let texture_obj = texture_store
+        .get_or_load_texture(
+            device,
+            queue,
+            diffuse_texture_full_path.clone(),
+            wgpu::TextureFormat::Rgba8Unorm,
+            texture_label,
+        )
+        .with_context(|| {
+            format!(
+                "Failed to load texture: {}",
+                diffuse_texture_full_path.clone()
+            )
+        })?;
+    let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
+
+    render_pass.set_bind_group(0, transform_bind_group, &[]);
+    render_pass.set_bind_group(1, light_bind_group, &[]);
+    render_pass.set_bind_group(2, mat_bind_group, &[]);
+
+    render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
+    // write buffer
+    queue.write_buffer(
+        vertex_buffer,
+        *vertex_buffer_offset,
+        bytemuck::cast_slice(mesh.verts()),
+    );
+    queue.write_buffer(
+        index_buffer,
+        *index_buffer_offset,
+        bytemuck::cast_slice(mesh.faces()),
+    );
+    *vertex_buffer_offset +=
+        (std::mem::size_of::<Vertex>() * mesh.verts().len()) as wgpu::BufferAddress;
+    *index_buffer_offset +=
+        (std::mem::size_of::<Face>() * mesh.faces().len()) as wgpu::BufferAddress;
+
+    render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+    render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+    render_pass.draw_indexed(
+        *index_count_offset..(*index_count_offset + mesh.draw_indices()),
+        *base_vertex,
+        0..1,
+    );
+    *index_count_offset += mesh.draw_indices();
+    *base_vertex += mesh.verts().len() as i32;
+    // ============ End Draw Call ============
+    Ok(())
 }

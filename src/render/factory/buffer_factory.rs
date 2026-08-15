@@ -53,10 +53,7 @@ pub fn create_light_uniform_buffer(device: &wgpu::Device, light_direction: Vec3)
     device.create_buffer_init(&descriptor)
 }
 
-pub fn create_material_uniform_buffer(
-    device: &wgpu::Device,
-    material: &Material
-) -> wgpu::Buffer {
+pub fn create_material_uniform_buffer(device: &wgpu::Device, material: &Material) -> wgpu::Buffer {
     // k_ambient is ignored by material uniform buffer
     let material_uniform = MaterialUniform {
         k_diffuse: pack_color(material.mat_attr.k_diffuse),

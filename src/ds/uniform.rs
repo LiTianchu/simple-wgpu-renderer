@@ -17,7 +17,7 @@ pub struct LightUniform {
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct MaterialUniform {
     // k_ambient is ignored
-    pub k_diffuse: u32, // RGBA color packed into a u32 bytes
+    pub k_diffuse: u32,  // RGBA color packed into a u32 bytes
     pub k_specular: u32, // RGBA color packed into a u32 bytes
     pub k_emissive: u32, // RGBA color packed into a u32 bytes
     pub index_of_refraction: f32,

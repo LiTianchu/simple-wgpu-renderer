@@ -48,8 +48,12 @@ pub fn buffer_slice_to_byte_array(
     Ok(output_img_pixels)
 }
 
-
-pub fn write_texture_rgba(queue: &wgpu::Queue, write_target_texture: &wgpu::Texture, img_pixel_dimensions: (u32, u32), rgba_data: &[u8]) {
+pub fn write_texture_rgba(
+    queue: &wgpu::Queue,
+    write_target_texture: &wgpu::Texture,
+    img_pixel_dimensions: (u32, u32),
+    rgba_data: &[u8],
+) {
     let texture_size = wgpu::Extent3d {
         width: img_pixel_dimensions.0,
         height: img_pixel_dimensions.1,

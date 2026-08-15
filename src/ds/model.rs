@@ -1,4 +1,8 @@
-use crate::{render::factory::{bind_group_factory,buffer_factory}, io::file_op, utils::copying};
+use crate::{
+    io::file_op,
+    render::factory::{bind_group_factory, buffer_factory},
+    utils::copying,
+};
 use std::collections::HashMap;
 use std::mem;
 
@@ -234,7 +238,6 @@ pub struct MaterialObject {
     pub material_bind_group: wgpu::BindGroup,
 }
 
-
 #[derive(Debug, Clone)]
 pub struct TextureObject {
     pub texture: wgpu::Texture,
@@ -425,7 +428,12 @@ impl MaterialStore {
 
         let default_mat = Material::new();
 
-        let default_mat_bind_group = bind_group_factory::create_material_bind_group(device, &default_mat, &material_bind_group_layout, "Default Material Bind Group");
+        let default_mat_bind_group = bind_group_factory::create_material_bind_group(
+            device,
+            &default_mat,
+            &material_bind_group_layout,
+            "Default Material Bind Group",
+        );
 
         let default_mat_obj = MaterialObject {
             material: default_mat,
@@ -443,6 +451,10 @@ impl MaterialStore {
         &self.materials
     }
 
+    pub fn default_material(&self) -> &MaterialObject {
+        &self.default_material
+    }
+
     pub fn material_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.material_bind_group_layout
     }
@@ -454,9 +466,8 @@ impl MaterialStore {
         device: &wgpu::Device,
     ) {
         if self.get_material(material_key.clone()).is_none() {
-            let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
-                device,&material
-            );
+            let material_uniform_buffer =
+                buffer_factory::create_material_uniform_buffer(device, &material);
 
             let mat_obj = MaterialObject {
                 material,
