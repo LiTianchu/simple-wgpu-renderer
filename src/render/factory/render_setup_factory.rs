@@ -1,8 +1,5 @@
 use crate::{
-    ds::{
-        viewer::Screen,
-        wgpu_resource::{SceneBindGroupLayoutSet, RendererState, WgpuObject},
-    },
+    ds::wgpu_resource::{RendererState, SceneBindGroupLayoutSet, WgpuObject},
     render::factory::render_pipeline_factory,
 };
 use std::path::Path;
@@ -11,19 +8,16 @@ pub async fn create_render_setup_raster_standard(
     wgpu_state: &WgpuObject,
     vert_shader_path: impl AsRef<Path>,
     frag_shader_path: impl AsRef<Path>,
-    screen_info: Option<Screen>,
     depth_attachment_size: (u32, u32),
     scene_bind_group_layout: &SceneBindGroupLayoutSet,
     mat_bind_group_layout: &wgpu::BindGroupLayout,
     texture_sampler_bind_group_layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<RendererState> {
-
-    let texture_format = if screen_info.is_none() {
-        wgpu::TextureFormat::Rgba8UnormSrgb
-    } else {
-        wgpu_state.surface_state.as_ref().unwrap().config.format
-    };
-
+    let texture_format = wgpu_state
+        .surface_state
+        .as_ref()
+        .map(|surface_state| surface_state.config.format)
+        .unwrap_or(wgpu::TextureFormat::Rgba8UnormSrgb);
 
     let depth_attachment_texture_descriptor = wgpu::TextureDescriptor {
         label: Some("Output Depth Texture"),

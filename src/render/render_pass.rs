@@ -1,4 +1,6 @@
-use crate::ds::model::Scene;
+use anyhow::{Context, anyhow};
+
+use crate::ds::model::{MaterialStore, Scene, TextureStore};
 
 pub fn render_to_output_buffer(
     // WGPU Resources
@@ -12,11 +14,10 @@ pub fn render_to_output_buffer(
     clear_color: wgpu::Color,
 
     // Model Specific Drawing Resources
-    // mat_bind_group: &wgpu::BindGroup,
-    // texture_sampler_bind_group: Option<&wgpu::BindGroup>,
-    // vertex_buffer: &wgpu::Buffer,
-    // index_buffer: &wgpu::Buffer,
-    // draw_indices: std::ops::Range<u32>,
+    vertex_buffer: &wgpu::Buffer,
+    index_buffer: &wgpu::Buffer,
+    material_store: &MaterialStore,
+    texture_store: &mut TextureStore,
     scene: &Scene,
 
     // Output Description
@@ -29,7 +30,7 @@ pub fn render_to_output_buffer(
 
     // Receiver buffer
     receiver_buffer: &wgpu::Buffer,
-) -> wgpu::SubmissionIndex {
+) -> anyhow::Result<wgpu::SubmissionIndex> {
     let depth_output_texture_view =
         depth_output_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -77,32 +78,69 @@ pub fn render_to_output_buffer(
             command_encoder.begin_render_pass(&render_pass_descriptor);
         render_pass.set_pipeline(&pipeline);
 
+        for model in scene.models_iter() {
+            for mesh in model.meshes().iter() {
+                // ============ Draw Call ============
+                // TODO: Handle no material situation (default material generation)
+                let mat_key = mesh.mat_key().unwrap();
+                let mat_obj = material_store.get_material(mat_key).unwrap();
+                let mat_bind_group = &mat_obj.material_bind_group;
 
-        // ============ Draw Call ============
-        // for model in scene.models_iter() {
-        //     model.meshes
+                // TODO: Handle no texture situation (default texture generation)
+                // TODO: Handle multiple texture types (normal, specular, shininess)
+                let diffuse_texture_sub_path = mat_obj
+                    .material
+                    .texture_set
+                    .diffuse_map_path
+                    .as_ref()
+                    .ok_or("Diffuse map path not found")
+                    .map_err(|e| anyhow!("Error occurred while loading diffuse texture: {}", e))?;
+                let diffuse_texture_full_path =
+                    format!("{}/{}", model.model_dir_path(), diffuse_texture_sub_path);
 
+                let texture_label = format!(
+                    "{}-{}-{}",
+                    model.file_path(),
+                    mat_key,
+                    diffuse_texture_sub_path
+                );
+                let texture_obj = texture_store
+                    .get_or_load_texture(
+                        device,
+                        queue,
+                        diffuse_texture_full_path.clone(),
+                        wgpu::TextureFormat::Rgba8Unorm,
+                        texture_label,
+                    )
+                    .with_context(|| {
+                        format!(
+                            "Failed to load texture: {}",
+                            diffuse_texture_full_path.clone()
+                        )
+                    })?;
+                let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
 
-        // }
+                render_pass.set_bind_group(0, transform_bind_group, &[]);
+                println!("Setting transform bind group");
+                render_pass.set_bind_group(1, light_bind_group, &[]);
+                println!("Setting light bind groups");
+                render_pass.set_bind_group(2, mat_bind_group, &[]);
+                println!("Setting material bind group");
 
-        // render_pass.set_bind_group(0, transform_bind_group, &[]);
-        // println!("Setting transform bind group");
-        // render_pass.set_bind_group(1, light_bind_group, &[]);
-        // println!("Setting light bind groups");
-        // render_pass.set_bind_group(2, mat_bind_group, &[]);
-        // println!("Setting material bind group");
+                render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
+                println!("Setting texture sampler bind group");
 
-        // if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
-        //     render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
-        //     println!("Setting texture sampler bind group");
-        // }
-        // render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        // render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        // println!("Drawing {} indices", draw_indices.len());
-        // render_pass.draw_indexed(draw_indices, 0, 0..1);
+                // write buffer
+                queue.write_buffer(vertex_buffer, 0, bytemuck::cast_slice(mesh.verts()));
+                queue.write_buffer(index_buffer, 0, bytemuck::cast_slice(mesh.faces()));
 
-        // ============ End Draw Call ============
-
+                render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                println!("Drawing {} indices", mesh.draw_indices().len());
+                render_pass.draw_indexed(mesh.draw_indices(), 0, 0..1);
+                // ============ End Draw Call ============
+            }
+        }
     }
 
     command_encoder.copy_texture_to_buffer(
@@ -128,7 +166,7 @@ pub fn render_to_output_buffer(
     );
 
     let submission_index = queue.submit([command_encoder.finish()]);
-    submission_index
+    Ok(submission_index)
 }
 
 pub fn render_to_screen(
@@ -143,6 +181,11 @@ pub fn render_to_screen(
     transform_bind_group: &wgpu::BindGroup,
     light_bind_group: &wgpu::BindGroup,
     clear_color: wgpu::Color,
+
+    vertex_buffer: &wgpu::Buffer,
+    index_buffer: &wgpu::Buffer,
+    material_store: &MaterialStore,
+    texture_store: &mut TextureStore,
     scene: &Scene,
 
     // Attachment
@@ -217,22 +260,66 @@ pub fn render_to_screen(
         });
 
         render_pass.set_pipeline(render_pipeline);
-        // render_pass.set_bind_group(0, transform_bind_group, &[]);
-        // println!("Setting transform bind group");
-        // render_pass.set_bind_group(1, light_bind_group, &[]);
-        // println!("Setting light bind group");
-        // render_pass.set_bind_group(2, mat_bind_group, &[]);
-        // println!("Setting material bind group");
 
-        // if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
-        //     println!("Setting texture sampler bind group");
-        //     render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
-        // }
+        for model in scene.models_iter() {
+            for mesh in model.meshes().iter() {
+                // ============ Draw Call ============
+                // TODO: Handle no material situation (default material generation)
+                let mat_key = mesh.mat_key().unwrap();
+                let mat_obj = material_store.get_material(mat_key).unwrap();
+                let mat_bind_group = &mat_obj.material_bind_group;
 
-        // render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        // render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        // println!("Drawing {} indices", draw_indices.len());
-        // render_pass.draw_indexed(draw_indices, 0, 0..1);
+                // TODO: Handle no texture situation (default texture generation)
+                // TODO: Handle multiple texture types (normal, specular, shininess)
+                let diffuse_texture_sub_path =
+                    mat_obj.material.texture_set.diffuse_map_path.as_ref()?;
+                let diffuse_texture_full_path =
+                    format!("{}/{}", model.model_dir_path(), diffuse_texture_sub_path);
+
+                let texture_label = format!(
+                    "{}-{}-{}",
+                    model.file_path(),
+                    mat_key,
+                    diffuse_texture_sub_path
+                );
+                let texture_obj = texture_store
+                    .get_or_load_texture(
+                        device,
+                        queue,
+                        diffuse_texture_full_path.clone(),
+                        wgpu::TextureFormat::Rgba8Unorm,
+                        texture_label,
+                    )
+                    .with_context(|| {
+                        format!(
+                            "Failed to load texture: {}",
+                            diffuse_texture_full_path.clone()
+                        )
+                    })
+                    .ok()?;
+                let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
+
+                render_pass.set_bind_group(0, transform_bind_group, &[]);
+                println!("Setting transform bind group");
+                render_pass.set_bind_group(1, light_bind_group, &[]);
+                println!("Setting light bind groups");
+                render_pass.set_bind_group(2, mat_bind_group, &[]);
+                println!("Setting material bind group");
+
+                render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
+                println!("Setting texture sampler bind group");
+
+                // write buffer
+                queue.write_buffer(vertex_buffer, 0, bytemuck::cast_slice(mesh.verts()));
+                queue.write_buffer(index_buffer, 0, bytemuck::cast_slice(mesh.faces()));
+
+                render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
+                render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+                println!("Drawing {} indices", mesh.draw_indices().len());
+                render_pass.draw_indexed(mesh.draw_indices(), 0, 0..1);
+                // ============ End Draw Call ============
+            }
+        }
     }
 
     // egui command buffer

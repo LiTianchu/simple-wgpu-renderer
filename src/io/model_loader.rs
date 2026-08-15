@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::ds::model::{
-    Material, MaterialAttributeSet, MaterialObject, MaterialStore, Mesh, Model, Scene, TextureSet, Vertex,
+    Material, MaterialAttributeSet, MaterialStore, Mesh, Model, Scene, TextureSet, Vertex,
 };
 use std::path::PathBuf;
 
@@ -14,7 +14,14 @@ pub fn load_obj_models_to_scene(
     for p in paths {
         let mut loaded_model = Model::new();
         println!("Loading: {}", p.to_string_lossy());
-        match collect_obj_model_data(p.to_string_lossy(), &mut loaded_model, material_cache, device).ok() {
+        match collect_obj_model_data(
+            p.to_string_lossy(),
+            &mut loaded_model,
+            material_cache,
+            device,
+        )
+        .ok()
+        {
             Some(_) => {}
             None => return None,
         }
@@ -276,8 +283,11 @@ pub fn collect_obj_model_data(
             mat_full_path.to_string_lossy()
         );
 
-
-        material_cache.insert_material(mat_full_path.to_string_lossy().to_string(), material, &device);
+        material_cache.insert_material(
+            mat_full_path.to_string_lossy().to_string(),
+            material,
+            &device,
+        );
     }
     Ok(())
 }

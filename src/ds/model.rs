@@ -1,6 +1,7 @@
-use crate::io::file_op;
+use crate::{ds::uniform::MaterialUniform, io::file_op};
 use std::collections::HashMap;
 use std::mem;
+use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -222,6 +223,10 @@ impl Mesh {
     pub fn mat_key(&self) -> Option<&String> {
         self.mat_key.as_ref()
     }
+
+    pub fn draw_indices(&self) -> std::ops::Range<u32> {
+        0..(self.faces().len() * 3) as u32
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -235,7 +240,7 @@ pub struct TextureObject {
     pub texture: wgpu::Texture,
     pub texture_view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
-    pub texture_bind_group: wgpu::BindGroup,
+    pub texture_sampler_bind_group: wgpu::BindGroup,
 }
 
 #[derive(Debug, Clone)]
@@ -245,7 +250,30 @@ pub struct TextureStore {
 }
 
 impl TextureStore {
-    pub fn new(texture_sampler_bind_group_layout: wgpu::BindGroupLayout) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
+        let texture_sampler_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Texture-Sampler Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
         Self {
             textures: HashMap::new(),
             texture_sampler_bind_group_layout,
@@ -281,7 +309,6 @@ impl TextureStore {
         queue: &wgpu::Queue,
         texture_file_path: impl Into<String>,
         texture_format: wgpu::TextureFormat,
-        texture_bind_group_layout: &wgpu::BindGroupLayout,
         texture_label: impl Into<String>,
     ) -> Option<&TextureObject> {
         let texture_file_path_str = texture_file_path.into();
@@ -357,10 +384,9 @@ impl TextureStore {
                 ..Default::default()
             });
 
-
             let texture_sampler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("Texture-Sampler Bind Group"),
-                layout: texture_bind_group_layout,
+                layout: &self.texture_sampler_bind_group_layout,
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,
@@ -379,7 +405,7 @@ impl TextureStore {
                     texture: wgpu_texture,
                     texture_view,
                     sampler,
-                    texture_bind_group: texture_sampler_bind_group,
+                    texture_sampler_bind_group: texture_sampler_bind_group,
                 },
             );
 
@@ -396,7 +422,22 @@ pub struct MaterialStore {
 }
 
 impl MaterialStore {
-    pub fn new(material_bind_group_layout: wgpu::BindGroupLayout) -> Self {
+    pub fn new(device: &wgpu::Device) -> Self {
+        let material_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Material Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
         Self {
             materials: HashMap::new(),
             material_bind_group_layout,
@@ -411,18 +452,46 @@ impl MaterialStore {
         &self.material_bind_group_layout
     }
 
-    pub fn insert_material(&mut self, material_key: String, material: Material, device: &wgpu::Device) {
+    pub fn insert_material(
+        &mut self,
+        material_key: String,
+        material: Material,
+        device: &wgpu::Device,
+    ) {
         if self.get_material(material_key.clone()).is_none() {
-            let mat_obj = MaterialObject{
-                material: material,
+            // create a new material bind group if material is not already stored
+            let diffuse = material
+                .mat_attr
+                .k_diffuse
+                .map(|channel| (channel.clamp(0.0, 1.0) * u8::MAX as f32).round() as u8);
+
+            let alpha = (material.mat_attr.dissolve.clamp(0.0, 1.0) * u8::MAX as f32).round() as u8;
+
+            // TODO: fill in the rest of the material uniforms
+            let material_uniform = MaterialUniform {
+                base_color: u32::from_be_bytes([diffuse[0], diffuse[1], diffuse[2], alpha]),
+            };
+
+            let material_uniform_buffer =
+                device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Material Uniform Buffer"),
+                    contents: bytemuck::bytes_of(&material_uniform),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+
+            let mat_obj = MaterialObject {
+                material,
                 material_bind_group: device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Material Bind Group"),
                     layout: &self.material_bind_group_layout,
-                    entries: &[],
+                    entries: &[wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: material_uniform_buffer.as_entire_binding(),
+                    }],
                 }),
             };
 
-        self.materials.insert(material_key, mat_obj);
+            self.materials.insert(material_key, mat_obj);
         }
     }
 
@@ -430,7 +499,10 @@ impl MaterialStore {
         self.materials.get(&material_key.into())
     }
 
-    pub fn get_material_mut(&mut self, material_key: impl Into<String>) -> Option<&mut MaterialObject> {
+    pub fn get_material_mut(
+        &mut self,
+        material_key: impl Into<String>,
+    ) -> Option<&mut MaterialObject> {
         self.materials.get_mut(&material_key.into())
     }
 }

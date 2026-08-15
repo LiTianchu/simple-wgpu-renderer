@@ -1,13 +1,13 @@
 use crate::{
+    constants,
     ds::{
-        model::{Model, TextureObject},
+        model::Vertex,
         transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
         wgpu_resource::SceneBindGroupLayoutSet,
     },
     render::factory::buffer_factory,
 };
 use glam::Vec3;
-use wgpu::util::DeviceExt;
 pub struct RenderPayload {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -25,26 +25,23 @@ pub fn create_standard_render_payload(
     render_width: u32,
     render_height: u32,
 ) -> RenderPayload {
-    // let vertices = model.all_verts_copied();
-    // let vertices_slice = vertices.as_slice();
-
-    let vertex_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
+    let vertex_buffer_init_descriptor = wgpu::BufferDescriptor {
         label: Some("Vertex Buffer"),
-        contents: &[],
-        usage: wgpu::BufferUsages::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        size: constants::INITIAL_BUFFER_INDEX_COUNT * std::mem::size_of::<Vertex>() as u64,
+        mapped_at_creation: false,
     };
 
-    let vertex_buffer = device.create_buffer_init(&vertex_buffer_init_descriptor);
+    let vertex_buffer = device.create_buffer(&vertex_buffer_init_descriptor);
 
-    // let faces = model.all_faces_copied();
-    // let face_slice: &[u8] = bytemuck::cast_slice(faces.as_slice());
-    let index_buffer_init_descriptor = wgpu::util::BufferInitDescriptor {
+    let index_buffer_init_descriptor = wgpu::BufferDescriptor {
         label: Some("Index Buffer"),
-        contents: &[],
-        usage: wgpu::BufferUsages::INDEX,
+        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+        size: constants::INITIAL_BUFFER_INDEX_COUNT * std::mem::size_of::<u32>() as u64,
+        mapped_at_creation: false,
     };
 
-    let index_buffer = device.create_buffer_init(&index_buffer_init_descriptor);
+    let index_buffer = device.create_buffer(&index_buffer_init_descriptor);
 
     let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
         &device,
@@ -63,11 +60,6 @@ pub fn create_standard_render_payload(
         },
     );
 
-    // let material_uniform_buffer = buffer_factory::create_material_uniform_buffer(
-    //     &device,
-    //     [149, 191, 201, 255], // muted greenish-blue color
-    // );
-
     let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Transform Bind Group"),
         layout: &scene_bind_group_layouts.transform_bind_group_layout,
@@ -80,14 +72,11 @@ pub fn create_standard_render_payload(
     let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("Light Bind Group"),
         layout: &scene_bind_group_layouts.light_bind_group_layout,
-        entries: &[
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_uniform_buffer.as_entire_binding(),
-            },
-        ],
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: light_uniform_buffer.as_entire_binding(),
+        }],
     });
-
 
     RenderPayload {
         vertex_buffer,

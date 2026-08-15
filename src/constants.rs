@@ -13,3 +13,6 @@ pub const IMAGE_FILE_FORMAT: &str = "png";
 pub const DEFAULT_MODEL_PATH: &str = "./assets/obj/mini_forest/tree-high.obj";
 pub const IMAGE_EXPORT_WIDTH: u32 = 1280;
 pub const IMAGE_EXPORT_HEIGHT: u32 = 800;
+
+pub const INITIAL_BUFFER_VERTEX_COUNT: u64 = 1_000_000;
+pub const INITIAL_BUFFER_INDEX_COUNT: u64 = 3_000_000;

@@ -1,4 +1,5 @@
-use crate::ds::viewer::Screen;
+use std::sync::Arc;
+use winit::window::Window;
 
 #[derive(Debug)]
 pub struct WgpuObject {
@@ -60,7 +61,7 @@ impl WgpuObject {
         }
     }
 
-    pub async fn on_screen(screen: Screen) -> Self {
+    pub async fn on_screen(window: Arc<Window>) -> Self {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::PRIMARY,
             flags: Default::default(),
@@ -69,7 +70,7 @@ impl WgpuObject {
             display: None,
         });
 
-        let surface = instance.create_surface(screen.window.clone()).unwrap();
+        let surface = instance.create_surface(window.clone()).unwrap();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -99,11 +100,12 @@ impl WgpuObject {
             .copied()
             .unwrap_or(surface_caps.formats[0]);
 
+        let window_size = window.inner_size();
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
-            width: screen.window_inner_width,
-            height: screen.window_inner_height,
+            width: window_size.width,
+            height: window_size.height,
             present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
@@ -143,4 +145,43 @@ pub struct SurfaceState {
 pub struct SceneBindGroupLayoutSet {
     pub transform_bind_group_layout: wgpu::BindGroupLayout,
     pub light_bind_group_layout: wgpu::BindGroupLayout,
+}
+
+impl SceneBindGroupLayoutSet {
+    pub fn new(device: &wgpu::Device) -> Self {
+        let transform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Transform Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let light_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Light Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        Self {
+            transform_bind_group_layout,
+            light_bind_group_layout,
+        }
+    }
 }
