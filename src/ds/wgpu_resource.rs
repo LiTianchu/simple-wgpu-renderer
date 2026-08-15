@@ -144,6 +144,7 @@ pub struct SurfaceState {
 #[derive(Debug, Clone)]
 pub struct BindGroupLayoutState {
     pub transform_bind_group_layout: wgpu::BindGroupLayout,
-    pub mat_light_bind_group_layout: wgpu::BindGroupLayout,
+    pub light_bind_group_layout: wgpu::BindGroupLayout,
+    pub material_bind_group_layout: wgpu::BindGroupLayout,
     pub texture_sampler_bind_group_layout: wgpu::BindGroupLayout,
 }

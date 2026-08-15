@@ -10,23 +10,27 @@ struct MaterialUniforms {
     base_color: u32}
 
 // uniform passed from CPU
+// Transform
 // binding group 0, resource slot 0
 @group(0) @binding(0)
 var<uniform> transforms: TransformUniforms;
 
+// Light
 // binding group 1, resource slot 0
 @group(1) @binding(0)
 var<uniform> light: LightingUniforms;
 
-// binding group 1, resource slot 1
-@group(1) @binding(1)
+// Material
+// binding group 2, resource slot 0
+@group(2) @binding(0)
 var<uniform> material: MaterialUniforms;
 
-//binding group 2, resource slot 0
-@group(2) @binding(0)
+// Texture
+//binding group 3, resource slot  0
+@group(3) @binding(0)
 var t_diffuse: texture_2d<f32>;
-//binding group 2, resource slot 1
-@group(2) @binding(1)
+//binding group 3, resource slot 1
+@group(3) @binding(1)
 var s_diffuse: sampler;
 
 struct VertexInput {

@@ -132,7 +132,8 @@ impl AppState {
         }
 
         let transform_bind_group: &wgpu::BindGroup = &render_payload.transform_bind_group;
-        let mat_light_bind_group: &wgpu::BindGroup = &render_payload.mat_light_bind_group;
+        let light_bind_group: &wgpu::BindGroup = &render_payload.light_bind_group;
+        let mat_bind_group: &wgpu::BindGroup = &render_payload.mat_bind_group;
         let texture_sampler_bind_group: Option<&wgpu::BindGroup> =
             render_payload.texture_sampler_bind_group.as_ref();
         let vertex_buffer: &wgpu::Buffer = &render_payload.vertex_buffer;
@@ -156,7 +157,8 @@ impl AppState {
             &surface_state.config,
             &render_pipeline,
             transform_bind_group,
-            mat_light_bind_group,
+            light_bind_group,
+            mat_bind_group,
             texture_sampler_bind_group,
             vertex_buffer,
             index_buffer,

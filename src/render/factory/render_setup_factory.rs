@@ -40,8 +40,8 @@ pub async fn create_render_setup_raster_standard(
         }],
     };
 
-    let mat_light_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
-        label: Some("Material-Light Bind Group Layout"),
+    let light_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Light Bind Group Layout"),
         entries: &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0, // light
@@ -53,8 +53,14 @@ pub async fn create_render_setup_raster_standard(
                 },
                 count: None,
             },
+        ],
+    };
+
+    let mat_bind_grp_layout_descriptor = wgpu::BindGroupLayoutDescriptor {
+        label: Some("Material Bind Group Layout"),
+        entries: &[
             wgpu::BindGroupLayoutEntry {
-                binding: 1, // material
+                binding: 0, // material
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
@@ -92,9 +98,13 @@ pub async fn create_render_setup_raster_standard(
         .device
         .create_bind_group_layout(&transform_bind_grp_layout_descriptor);
 
-    let mat_light_bind_grp_layout = wgpu_state
+    let light_bind_grp_layout = wgpu_state
         .device
-        .create_bind_group_layout(&mat_light_bind_grp_layout_descriptor);
+        .create_bind_group_layout(&light_bind_grp_layout_descriptor);
+
+    let material_bind_grp_layout = wgpu_state
+        .device
+        .create_bind_group_layout(&mat_bind_grp_layout_descriptor);
 
     let texture_sampler_bind_grp_layout = wgpu_state
         .device
@@ -125,7 +135,8 @@ pub async fn create_render_setup_raster_standard(
         // REMEMBER to add the new bind group layouts to the pipeline creation function
         &[
             Some(&transform_bind_grp_layout),
-            Some(&mat_light_bind_grp_layout),
+            Some(&light_bind_grp_layout),
+            Some(&material_bind_grp_layout),
             Some(&texture_sampler_bind_grp_layout),
         ],
         vert_shader_path.as_ref(),
@@ -139,7 +150,8 @@ pub async fn create_render_setup_raster_standard(
         frag_texture_format: texture_format,
         bind_group_layouts: BindGroupLayoutState {
             transform_bind_group_layout: transform_bind_grp_layout,
-            mat_light_bind_group_layout: mat_light_bind_grp_layout,
+            light_bind_group_layout: light_bind_grp_layout,
+            material_bind_group_layout: material_bind_grp_layout,
             texture_sampler_bind_group_layout: texture_sampler_bind_grp_layout,
         },
         depth_attachment_texture,

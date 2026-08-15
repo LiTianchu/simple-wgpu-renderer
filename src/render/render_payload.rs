@@ -12,7 +12,8 @@ pub struct RenderPayload {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub transform_bind_group: wgpu::BindGroup,
-    pub mat_light_bind_group: wgpu::BindGroup,
+    pub light_bind_group: wgpu::BindGroup,
+    pub mat_bind_group: wgpu::BindGroup,
     pub texture_sampler_bind_group: Option<wgpu::BindGroup>,
 }
 
@@ -71,7 +72,7 @@ pub fn create_standard_render_payload(
     );
 
     let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Image Export Transform Bind Group"),
+        label: Some("Transform Bind Group"),
         layout: &bind_group_layouts.transform_bind_group_layout,
         entries: &[wgpu::BindGroupEntry {
             binding: 0,
@@ -79,16 +80,23 @@ pub fn create_standard_render_payload(
         }],
     });
 
-    let mat_light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("Image Export Material-Light Bind Group"),
-        layout: &bind_group_layouts.mat_light_bind_group_layout,
+    let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Light Bind Group"),
+        layout: &bind_group_layouts.light_bind_group_layout,
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
                 resource: light_uniform_buffer.as_entire_binding(),
             },
+        ],
+    });
+
+    let mat_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("Material Bind Group"),
+        layout: &bind_group_layouts.material_bind_group_layout,
+        entries: &[
             wgpu::BindGroupEntry {
-                binding: 1,
+                binding: 0,
                 resource: material_uniform_buffer.as_entire_binding(),
             },
         ],
@@ -98,7 +106,7 @@ pub fn create_standard_render_payload(
 
     if let Some(diffuse_texture_obj) = diffuse_texture_obj {
         texture_sampler_bind_group = Some(device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Image Export Texture-Sampler Bind Group"),
+            label: Some("Texture-Sampler Bind Group"),
             layout: &bind_group_layouts.texture_sampler_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -117,7 +125,8 @@ pub fn create_standard_render_payload(
         vertex_buffer,
         index_buffer,
         transform_bind_group,
-        mat_light_bind_group,
+        light_bind_group,
+        mat_bind_group,
         texture_sampler_bind_group,
     }
 }

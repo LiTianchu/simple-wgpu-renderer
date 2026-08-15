@@ -134,7 +134,6 @@ pub fn collect_obj_model_data(
             let uv_x = mesh.texcoords.get(2 * vtx).copied().unwrap_or_default();
             let uv_y = mesh.texcoords.get(2 * vtx + 1).copied().unwrap_or_default();
 
-            // TODO: there are some model's UV is more than 1.0, need to check this
             let norm_x = mesh.normals.get(3 * vtx).copied().unwrap_or_default();
             let norm_y = mesh.normals.get(3 * vtx + 1).copied().unwrap_or_default();
             let norm_z = mesh.normals.get(3 * vtx + 2).copied().unwrap_or_default();

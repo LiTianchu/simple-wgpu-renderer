@@ -6,7 +6,8 @@ pub fn render_to_output_buffer(
 
     // Drawing Resources
     transform_bind_group: &wgpu::BindGroup,
-    mat_light_bind_group: &wgpu::BindGroup,
+    light_bind_group: &wgpu::BindGroup,
+    mat_bind_group: &wgpu::BindGroup,
     texture_sampler_bind_group: Option<&wgpu::BindGroup>,
     vertex_buffer: &wgpu::Buffer,
     index_buffer: &wgpu::Buffer,
@@ -72,10 +73,13 @@ pub fn render_to_output_buffer(
         render_pass.set_pipeline(&pipeline);
         render_pass.set_bind_group(0, transform_bind_group, &[]);
         println!("Setting transform bind group");
-        render_pass.set_bind_group(1, mat_light_bind_group, &[]);
-        println!("Setting transform and material-light bind groups");
+        render_pass.set_bind_group(1, light_bind_group, &[]);
+        println!("Setting light bind groups");
+        render_pass.set_bind_group(2, mat_bind_group, &[]);
+        println!("Setting material bind group");
+
         if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
-            render_pass.set_bind_group(2, texture_sampler_bind_group, &[]);
+            render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
             println!("Setting texture sampler bind group");
         }
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
@@ -120,7 +124,8 @@ pub fn render_to_screen(
 
     // Drawing resources
     transform_bind_group: &wgpu::BindGroup,
-    mat_light_bind_group: &wgpu::BindGroup,
+    light_bind_group: &wgpu::BindGroup,
+    mat_bind_group: &wgpu::BindGroup,
     texture_sampler_bind_group: Option<&wgpu::BindGroup>,
     vertex_buffer: &wgpu::Buffer,
     index_buffer: &wgpu::Buffer,
@@ -201,12 +206,14 @@ pub fn render_to_screen(
         render_pass.set_pipeline(render_pipeline);
         render_pass.set_bind_group(0, transform_bind_group, &[]);
         println!("Setting transform bind group");
-        render_pass.set_bind_group(1, mat_light_bind_group, &[]);
-        println!("Setting transform and material-light bind groups");
+        render_pass.set_bind_group(1, light_bind_group, &[]);
+        println!("Setting light bind group");
+        render_pass.set_bind_group(2, mat_bind_group, &[]);
+        println!("Setting material bind group");
 
         if let Some(texture_sampler_bind_group) = texture_sampler_bind_group {
             println!("Setting texture sampler bind group");
-            render_pass.set_bind_group(2, texture_sampler_bind_group, &[]);
+            render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
         }
 
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));

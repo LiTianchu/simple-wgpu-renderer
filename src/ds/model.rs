@@ -291,7 +291,6 @@ impl TextureStore {
             image::load_from_memory(&data)
         };
 
-        // TODO: make file format handling more robust
         if let Ok(texture_img) = image_result {
             let texture_img_rgba = texture_img.to_rgba8();
             let dimensions = texture_img_rgba.dimensions();
@@ -331,6 +330,8 @@ impl TextureStore {
                 texture_size,
             );
             let texture_view = wgpu_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+            // NOTE: there are some model's UV is more than 1.0 meant for repeating
             let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
                 label: Some(&format!("{} Sampler", &texture_label)),
                 address_mode_u: wgpu::AddressMode::Repeat,

@@ -10,16 +10,19 @@ struct MaterialUniforms {
     base_color: u32}
 
 // uniform passed from CPU
+// Transform
 // binding group 0, resource slot 0
 @group(0) @binding(0)
 var<uniform> transforms: TransformUniforms;
 
+// Light
 // binding group 1, resource slot 0
 @group(1) @binding(0)
 var<uniform> light: LightingUniforms;
 
-// binding group 1, resource slot 1
-@group(1) @binding(1)
+// Material
+// binding group 2, resource slot 0
+@group(2) @binding(0)
 var<uniform> material: MaterialUniforms;
 
 struct VertexInput {
