@@ -279,8 +279,20 @@ impl TextureStore {
         let texture_label = texture_label.into();
         let data = file_op::load_binary(&texture_file_path_str).ok()?;
 
+        let texture_file_ext = std::path::Path::new(&texture_file_path_str)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        let image_result = if texture_file_ext == "tga" {
+            image::load_from_memory_with_format(&data, image::ImageFormat::Tga)
+        } else {
+            image::load_from_memory(&data)
+        };
+
         // TODO: make file format handling more robust
-        if let Ok(texture_img) = image::load_from_memory(&data) {
+        if let Ok(texture_img) = image_result {
             let texture_img_rgba = texture_img.to_rgba8();
             let dimensions = texture_img_rgba.dimensions();
             let texture_size = wgpu::Extent3d {
