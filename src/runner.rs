@@ -7,9 +7,8 @@ use crate::ds::{
     model::Scene,
     wgpu_resource::{RendererState, SceneBindGroupLayoutSet, WgpuObject},
 };
-use crate::io::model_loader;
+use crate::io::{model_loader, preload};
 use crate::render::{factory::render_setup_factory, render_pass};
-use egui::color_picker::Alpha;
 use glam::Vec3;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -379,7 +378,7 @@ impl App {
         let wgpu_object = WgpuObject::on_screen(window.clone()).await;
         let scene_bind_group_layouts = SceneBindGroupLayoutSet::new(&wgpu_object.device);
         let mut material_store = MaterialStore::new(&wgpu_object.device);
-        let texture_store = TextureStore::new(&wgpu_object.device, &wgpu_object.queue);
+        let mut texture_store = TextureStore::new(&wgpu_object.device, &wgpu_object.queue);
         let scene = model_loader::load_obj_models_to_scene(
             model_paths,
             &mut material_store,
@@ -415,6 +414,12 @@ impl App {
             initial_light_dir,
             &scene_bind_group_layouts,
         );
+
+        preload::preload_diffuse_normal_specular(
+            &wgpu_object,
+            &material_store,
+            &mut texture_store,
+        )?;
 
         Ok((
             state,

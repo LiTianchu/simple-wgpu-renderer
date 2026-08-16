@@ -1,7 +1,7 @@
 use my_renderer::constants;
 use my_renderer::ds::model::{MaterialStore, TextureStore};
 use my_renderer::ds::wgpu_resource::{SceneBindGroupLayoutSet, WgpuObject};
-use my_renderer::io::{file_op, image_exporter, model_loader};
+use my_renderer::io::{file_op, image_exporter, model_loader, preload};
 use my_renderer::runner::run;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -59,6 +59,9 @@ async fn render_off_screen(model_paths: Vec<PathBuf>, model_path: &str) -> anyho
     std::fs::create_dir_all(image_export_dir)?;
 
     println!("Num Models in scene: {}", scene.models().len());
+
+    preload::preload_diffuse_normal_specular(&wgpu_object, &material_store, &mut texture_store)?;
+
     image_exporter::render_image(
         &scene,
         &wgpu_object,

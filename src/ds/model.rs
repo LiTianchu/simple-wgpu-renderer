@@ -1,3 +1,5 @@
+use anyhow::Context;
+
 use crate::{
     io::file_op,
     render::factory::{bind_group_factory, buffer_factory, texture_factory},
@@ -242,22 +244,17 @@ pub struct TextureObject {
     pub texture: wgpu::Texture,
     pub texture_view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
-    pub texture_sampler_bind_group: wgpu::BindGroup, // might need to recompute when render pipeline changes with diff shader uniform layout
 }
 
 #[derive(Debug, Clone)]
 pub struct DefaultTextures {
     pub diffuse: TextureObject,
-    // pub normal: TextureObject,
-    // pub specular: TextureObject,
+    pub normal: TextureObject,
+    pub specular: TextureObject,
 }
 
 impl DefaultTextures {
-    pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        texture_sampler_bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let rgba_data_diffuse: Vec<u8> = vec![0xFF; 4]; // white diffuse texture
 
         let diffuse_tex_obj = texture_factory::create_texture(
@@ -266,25 +263,34 @@ impl DefaultTextures {
             &rgba_data_diffuse,
             (1, 1),
             wgpu::TextureFormat::Rgba8Unorm,
-            texture_sampler_bind_group_layout,
             "Diffuse Texture Default",
         );
 
         let rgba_data_normal: Vec<u8> = vec![0x80, 0x80, 0xFF, 0xFF]; // neutral normal vector in tangent space (0.5, 0.5, 1.0)
         let rgba_data_specular: Vec<u8> = vec![0x00, 0x00, 0x00, 0xFF]; // black specular map (no specular reflection)
 
-        // let normal_tex_obj = texture_factory::create_texture(
-        //     device,
-        //     queue,
-        //     &rgba_data_normal,
-        //     (1, 1),
-        //     wgpu::TextureFormat::Rgba8Unorm,
-        //     texture_sampler_bind_group_layout,
-        //     "Normal Texture Default",
-        // );
+        let normal_tex_obj = texture_factory::create_texture(
+            device,
+            queue,
+            &rgba_data_normal,
+            (1, 1),
+            wgpu::TextureFormat::Rgba8Unorm,
+            "Normal Texture Default",
+        );
+
+        let specular_tex_obj = texture_factory::create_texture(
+            device,
+            queue,
+            &rgba_data_specular,
+            (1, 1),
+            wgpu::TextureFormat::Rgba8Unorm,
+            "Specular Texture Default",
+        );
 
         Self {
             diffuse: diffuse_tex_obj,
+            normal: normal_tex_obj,
+            specular: specular_tex_obj,
         }
     }
 }
@@ -303,7 +309,15 @@ impl TextureStore {
                 label: Some("Texture-Sampler Bind Group Layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
+                        // shared sampler
                         binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        // diffuse texture
+                        binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             sample_type: wgpu::TextureSampleType::Float { filterable: true },
@@ -313,16 +327,31 @@ impl TextureStore {
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
-                        binding: 1,
+                        // normal map
+                        binding: 2,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        // specular map
+                        binding: 3,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
                         count: None,
                     },
                 ],
             });
 
-        let default_textures =
-            DefaultTextures::new(device, queue, &texture_sampler_bind_group_layout);
+        let default_textures = DefaultTextures::new(device, queue);
         Self {
             textures: HashMap::new(),
             texture_sampler_bind_group_layout: texture_sampler_bind_group_layout,
@@ -399,7 +428,6 @@ impl TextureStore {
                 &texture_img_rgba,
                 texture_img_rgba.dimensions(),
                 texture_format,
-                &self.texture_sampler_bind_group_layout,
                 texture_label,
             );
 

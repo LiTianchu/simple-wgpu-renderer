@@ -21,7 +21,9 @@ pub fn create_material_bind_group(
 
 pub fn create_texture_sampler_bind_group(
     device: &wgpu::Device,
-    texture_view: &wgpu::TextureView,
+    diffuse_texture_view: &wgpu::TextureView,
+    normal_texture_view: &wgpu::TextureView,
+    specular_texture_view: &wgpu::TextureView,
     sampler: &wgpu::Sampler,
     texture_sampler_bind_group_layout: &wgpu::BindGroupLayout,
     label: impl Into<String>,
@@ -32,11 +34,19 @@ pub fn create_texture_sampler_bind_group(
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::TextureView(&texture_view),
+                resource: wgpu::BindingResource::Sampler(&sampler),
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::Sampler(&sampler),
+                resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(&normal_texture_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: wgpu::BindingResource::TextureView(&specular_texture_view),
             },
         ],
     });

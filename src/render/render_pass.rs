@@ -1,6 +1,10 @@
 use anyhow::Context;
 
-use crate::ds::model::{Face, MaterialStore, Model, Scene, TextureStore, Vertex};
+use crate::{
+    ds::model::{Face, MaterialStore, Model, Scene, TextureStore, Vertex},
+    io::path_resolver,
+    render::factory::bind_group_factory,
+};
 
 pub fn render_to_output_buffer(
     // WGPU Resources
@@ -280,7 +284,7 @@ fn draw(
     model: &Model,
     mesh_index: usize,
     material_store: &MaterialStore,
-    texture_store: &mut TextureStore,
+    texture_store: &TextureStore,
     render_pass: &mut wgpu::RenderPass,
     vertex_buffer: &wgpu::Buffer,
     index_buffer: &wgpu::Buffer,
@@ -306,36 +310,23 @@ fn draw(
         ));
     }
 
+    let mat_full_path = mesh
+        .mat_key()
+        .expect(format!("Material key not found for mesh index {} of model at {}, something went wrong when loading materials!", mesh_index, model.model_dir_path()).as_str());
+
     let mat_bind_group = &mat_obj.material_bind_group;
 
     let default_mat_label = String::from("default_material");
 
-    // fallback texture
-    let mut texture_obj = &texture_store.default_textures().diffuse;
+    // fallback texture for diffuse
+    let mut diffuse_texture_obj = &texture_store.default_textures().diffuse;
 
-    // TODO: Handle multiple texture types (normal, specular, shininess)
     if let Some(diffuse_texture_sub_path) = mat_obj.material.texture_set.diffuse_map_path.as_ref() {
-        let diffuse_texture_full_path = format!(
-            "{}/{}",
-            model.model_dir_path(),
-            diffuse_texture_sub_path.clone()
-        );
+        let diffuse_texture_full_path =
+            path_resolver::get_texture_full_path(mat_full_path.clone(), diffuse_texture_sub_path)?;
 
-        let texture_label = format!(
-            "Loaded texture {}-{}-{}",
-            model.file_path(),
-            mesh.mat_key().unwrap_or(&default_mat_label),
-            diffuse_texture_sub_path.clone()
-        );
-
-        texture_obj = texture_store
-            .get_or_load_texture(
-                device,
-                queue,
-                diffuse_texture_full_path.clone(),
-                wgpu::TextureFormat::Rgba8Unorm,
-                texture_label,
-            )
+        diffuse_texture_obj = texture_store
+            .get_texture(diffuse_texture_full_path.clone())
             .with_context(|| {
                 format!(
                     "Failed to load texture: {}",
@@ -344,13 +335,65 @@ fn draw(
             })?;
     }
 
-    let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
+    // fallback texture for normal
+    let mut normal_texture_obj = &texture_store.default_textures().normal;
+
+    if let Some(normal_texture_sub_path) = mat_obj.material.texture_set.normal_map_path.as_ref() {
+        let normal_texture_full_path =
+            path_resolver::get_texture_full_path(mat_full_path.clone(), normal_texture_sub_path)?;
+
+        normal_texture_obj = texture_store
+            .get_texture(normal_texture_full_path.clone())
+            .with_context(|| {
+                format!(
+                    "Failed to load texture: {}",
+                    normal_texture_full_path.clone()
+                )
+            })?;
+    }
+
+    // fallback texture for specular
+    let mut specular_texture_obj = &texture_store.default_textures().specular;
+
+    if let Some(specular_texture_sub_path) = mat_obj.material.texture_set.specular_map_path.as_ref()
+    {
+        let specular_texture_full_path =
+            path_resolver::get_texture_full_path(mat_full_path.clone(), specular_texture_sub_path)?;
+
+        specular_texture_obj = texture_store
+            .get_texture(specular_texture_full_path.clone())
+            .with_context(|| {
+                format!(
+                    "Failed to load texture: {}",
+                    specular_texture_full_path.clone()
+                )
+            })?;
+    }
+
+    // let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
+
+    let texture_sampler_bind_group_label = format!(
+        "Texture-Sampler Bind Group for {}-{}",
+        model.file_path(),
+        mesh.mat_key().unwrap_or(&default_mat_label),
+    );
+
+    let texture_sampler_bind_group_layout = texture_store.texture_sampler_bind_group_layout();
+    let texture_sampler_bind_group = bind_group_factory::create_texture_sampler_bind_group(
+        &device,
+        &diffuse_texture_obj.texture_view,
+        &normal_texture_obj.texture_view,
+        &specular_texture_obj.texture_view,
+        &diffuse_texture_obj.sampler, // common sampler
+        &texture_sampler_bind_group_layout,
+        &texture_sampler_bind_group_label,
+    );
 
     render_pass.set_bind_group(0, transform_bind_group, &[]);
     render_pass.set_bind_group(1, light_bind_group, &[]);
     render_pass.set_bind_group(2, mat_bind_group, &[]);
 
-    render_pass.set_bind_group(3, texture_sampler_bind_group, &[]);
+    render_pass.set_bind_group(3, &texture_sampler_bind_group, &[]);
     // write buffer
     queue.write_buffer(
         vertex_buffer,
