@@ -35,6 +35,11 @@ pub fn render_to_output_buffer(
     // Receiver buffer
     receiver_buffer: &wgpu::Buffer,
 ) -> anyhow::Result<wgpu::SubmissionIndex> {
+    println!(
+        "Rendering to output buffer with size: {}x{}",
+        copy_width, copy_height
+    );
+
     let depth_output_texture_view =
         depth_output_texture.create_view(&wgpu::TextureViewDescriptor::default());
 

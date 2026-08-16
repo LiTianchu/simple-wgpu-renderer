@@ -411,15 +411,24 @@ impl TextureStore {
             .unwrap_or("")
             .to_lowercase();
 
+        println!("Loading texture bytes from: {}", texture_file_path_str);
         let image_result = if texture_file_ext == "tga" {
             image::load_from_memory_with_format(&data, image::ImageFormat::Tga)
         } else {
             image::load_from_memory(&data)
         };
+        println!(
+            "Finished loading texture bytes from: {}",
+            texture_file_path_str
+        );
 
         if let Ok(texture_img) = image_result {
             let texture_img_rgba = texture_img.to_rgba8();
 
+            println!(
+                "Creating texture object for: {} with format: {:?}",
+                texture_file_path_str, texture_format
+            );
             let tex_obj = texture_factory::create_texture(
                 device,
                 queue,
@@ -428,8 +437,16 @@ impl TextureStore {
                 texture_format,
                 texture_label,
             );
+            println!(
+                "Finished creating texture object for: {} with format: {:?}",
+                texture_file_path_str, texture_format
+            );
 
             self.insert_texture(texture_file_path_str.to_string(), tex_obj);
+            println!(
+                "Cached texture object into store for: {}",
+                texture_file_path_str
+            );
 
             return self.get_texture(texture_file_path_str);
         }

@@ -12,6 +12,12 @@ pub fn preload_diffuse_normal_specular(
     texture_store: &mut TextureStore,
 ) -> anyhow::Result<()> {
     // preload textures
+
+    println!(
+        "Preloading diffuse, normal, and specular textures for materials: {:?}",
+        material_store.materials().keys()
+    );
+
     for (mat_key, material_obj) in material_store.materials() {
         if let Some(diff_path) = material_obj.material.texture_set.diffuse_map_path.as_ref() {
             let diff_full_path = path_resolver::get_texture_full_path(mat_key.clone(), diff_path)?;
@@ -30,6 +36,10 @@ pub fn preload_diffuse_normal_specular(
                     "Failed to load diffuse texture at preloading stage {}",
                     diff_full_path,
                 ))?;
+            println!(
+                "=============Preloaded diffuse texture for material {}: {}=============\n",
+                mat_key, diff_full_path
+            );
         }
         if let Some(norm_path) = material_obj.material.texture_set.normal_map_path.as_ref() {
             let norm_full_path = path_resolver::get_texture_full_path(mat_key.clone(), norm_path)?;
@@ -48,6 +58,10 @@ pub fn preload_diffuse_normal_specular(
                     "Failed to load normal texture at preloading stage {}",
                     norm_full_path,
                 ))?;
+            println!(
+                "=============Preloaded normal texture for material {}: {}=============\n",
+                mat_key, norm_full_path
+            );
         }
         if let Some(spec_path) = material_obj.material.texture_set.specular_map_path.as_ref() {
             let spec_full_path = path_resolver::get_texture_full_path(mat_key.clone(), spec_path)?;
@@ -66,6 +80,10 @@ pub fn preload_diffuse_normal_specular(
                     "Failed to load specular texture at preloading stage {}",
                     spec_full_path,
                 ))?;
+            println!(
+                "=============Preloaded specular texture for material {}: {}=============\n",
+                mat_key, spec_full_path
+            );
         }
     }
     Ok(())

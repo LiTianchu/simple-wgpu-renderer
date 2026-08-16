@@ -13,17 +13,17 @@ Demo model: **Survival Guitar Backpack** by [Berk Gedik](https://sketchfab.com/b
 **Default (Off-screen Render):**  
 
 ```
-cargo run
+cargo run --release
 ```
 
 **Windowed (Real-time Render):**  
 
 ```
-cargo run -- -w
+cargo run --release -- -w
 ```
 
 **Loading Custom Model Using `-m`:**  
 
 ```
-cargo run -- -w -m "your_model_folder/model.obj"
+cargo run --release -- -w -m "your_model_folder/model.obj"
 ```

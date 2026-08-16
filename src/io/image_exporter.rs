@@ -30,6 +30,10 @@ pub async fn render_image(
         "Image should not have zero size!"
     );
 
+    println!(
+        "Begin rendering image with size: {}x{}",
+        output_width, output_height
+    );
     let renderer_state = render_setup_factory::create_render_setup_raster_standard(
         wgpu_object,
         vert_shader_path,
@@ -40,6 +44,8 @@ pub async fn render_image(
         texture_store.texture_sampler_bind_group_layout(),
     )
     .await?;
+
+    println!("Render setup created for image export.");
 
     let device = &wgpu_object.device;
     let queue = &wgpu_object.queue;
@@ -98,6 +104,8 @@ pub async fn render_image(
 
     let depth_attachment_texture: wgpu::Texture =
         device.create_texture(&depth_attachment_texture_descriptor);
+
+    println!("Output buffer and textures created for image export.");
 
     let object_transform = ObjectTransform::default();
 
