@@ -1,9 +1,11 @@
+use crate::constants;
 use crate::ds::{
+    common_resource::{DrawBufferSet, SceneBindGroupSet},
     model::{MaterialStore, Scene, TextureStore},
     transformation::{CameraInfo, ObjectTransform, ProjectionInfo},
     wgpu_resource::{SceneBindGroupLayoutSet, WgpuObject},
 };
-use crate::render::{factory::render_setup_factory, render_pass, render_payload};
+use crate::render::{factory::render_setup_factory, render_pass};
 use crate::utils::copying;
 use std::path::Path;
 
@@ -99,6 +101,7 @@ pub async fn render_image(
 
     let object_transform = ObjectTransform::default();
 
+    // slightly tilted
     let camera_info = CameraInfo {
         position: glam::Vec3::new(5.0, 5.0, 5.0),
         look_at: glam::Vec3::new(0.0, 0.0, 0.0),
@@ -106,35 +109,44 @@ pub async fn render_image(
         fov: 45.0_f32.to_radians(),
     };
 
-    let projection_info = ProjectionInfo {
-        near: 1.0,
-        far: 1000.0,
-    };
+    let projection_info = ProjectionInfo::default();
 
-    let render_payload = render_payload::create_standard_render_payload(
+    // let render_payload = render_payload::create_standard_render_payload(
+    //     &device,
+    //     &scene_bind_group_layouts,
+    //     &object_transform,
+    //     &camera_info,
+    //     &projection_info,
+    //     output_width,
+    //     output_height,
+    // );
+
+    let draw_buffers = DrawBufferSet::new(&device);
+    let scene_bind_groups = SceneBindGroupSet::new(
         &device,
-        &scene_bind_group_layouts,
         &object_transform,
         &camera_info,
         &projection_info,
         output_width,
         output_height,
+        constants::INITIAL_LIGHT_DIR,
+        scene_bind_group_layouts,
     );
 
     let submission_index: wgpu::SubmissionIndex = render_pass::render_to_output_buffer(
         &device,
         &queue,
         &renderer_state.render_pipeline,
-        &render_payload.transform_bind_group,
-        &render_payload.light_bind_group,
+        &scene_bind_groups.transform_bind_group,
+        &scene_bind_groups.light_bind_group,
         wgpu::Color {
             r: 0.0,
             g: 0.0,
             b: 0.0,
             a: 0.0,
         },
-        &render_payload.vertex_buffer,
-        &render_payload.index_buffer,
+        &draw_buffers.vertex_buffer,
+        &draw_buffers.index_buffer,
         material_store,
         texture_store,
         scene,

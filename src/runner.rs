@@ -3,11 +3,12 @@ use crate::ds::model::{MaterialStore, TextureStore};
 use crate::ds::transformation::{CameraInfo, ObjectTransform, ProjectionInfo};
 use crate::ds::viewer::{EguiFrame, ViewerState};
 use crate::ds::{
+    common_resource::{DrawBufferSet, SceneBindGroupSet},
     model::Scene,
     wgpu_resource::{RendererState, SceneBindGroupLayoutSet, WgpuObject},
 };
 use crate::io::model_loader;
-use crate::render::{factory::render_setup_factory, render_pass, render_payload};
+use crate::render::{factory::render_setup_factory, render_pass};
 use glam::Vec3;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -129,7 +130,8 @@ impl AppState {
         &mut self,
         scene: &Scene,
         wgpu_object: &WgpuObject,
-        render_payload: &render_payload::RenderPayload,
+        draw_buffers: &DrawBufferSet,
+        scene_bind_groups: &SceneBindGroupSet,
         material_store: &MaterialStore,
         texture_store: &mut TextureStore,
         egui_frame: &mut EguiFrame,
@@ -144,8 +146,8 @@ impl AppState {
             return Ok(());
         }
 
-        let transform_bind_group: &wgpu::BindGroup = &render_payload.transform_bind_group;
-        let light_bind_group: &wgpu::BindGroup = &render_payload.light_bind_group;
+        let transform_bind_group: &wgpu::BindGroup = &scene_bind_groups.transform_bind_group;
+        let light_bind_group: &wgpu::BindGroup = &scene_bind_groups.light_bind_group;
 
         let render_pipeline = &self.renderer_state.render_pipeline;
         let surface_state = wgpu_object.surface_state.as_ref().unwrap();
@@ -184,8 +186,8 @@ impl AppState {
             transform_bind_group,
             light_bind_group,
             clear_color,
-            &render_payload.vertex_buffer,
-            &render_payload.index_buffer,
+            &draw_buffers.vertex_buffer,
+            &draw_buffers.index_buffer,
             material_store,
             texture_store,
             scene,
@@ -248,7 +250,7 @@ impl AppState {
                     .text("Camera Azimuth Angle"),
             );
             ui.add(
-                egui::Slider::new(&mut self.viewer_state.cam_elevation_deg, -90.0..=90.0)
+                egui::Slider::new(&mut self.viewer_state.cam_elevation_deg, -89.99..=89.99)
                     .text("Camera Elevation Angle"),
             );
             ui.add(
@@ -300,7 +302,10 @@ struct AppResources {
     scene: Scene,
     material_store: MaterialStore,
     texture_store: TextureStore,
+    #[allow(dead_code)]
     scene_bind_group_layouts: SceneBindGroupLayoutSet,
+    draw_buffers: DrawBufferSet,
+    scene_bind_groups: SceneBindGroupSet,
 }
 
 pub struct App {
@@ -344,14 +349,36 @@ impl App {
         )
         .await?;
 
+        let window_size = state.window.inner_size();
+        let initial_object_transform = ObjectTransform::default();
+        let initial_camera_info = CameraInfo::default();
+        let initial_projection_info = ProjectionInfo::default();
+
+        let initial_light_dir = constants::INITIAL_LIGHT_DIR;
+
+        let draw_buffers = DrawBufferSet::new(&wgpu_object.device);
+
+        let scene_bind_groups = SceneBindGroupSet::new(
+            &wgpu_object.device,
+            &initial_object_transform,
+            &initial_camera_info,
+            &initial_projection_info,
+            window_size.width,
+            window_size.height,
+            initial_light_dir,
+            &scene_bind_group_layouts,
+        );
+
         Ok((
             state,
             AppResources {
                 wgpu_object,
                 scene,
-                material_store: material_store,
-                texture_store: texture_store,
+                material_store,
+                texture_store,
                 scene_bind_group_layouts,
+                draw_buffers,
+                scene_bind_groups,
             },
         ))
     }
@@ -440,8 +467,8 @@ impl ApplicationHandler for App {
 
                 let output_width = surface_state.config.width;
                 let output_height = surface_state.config.height;
-                let scene_bind_group_layouts = &resources.scene_bind_group_layouts;
-                let device = &resources.wgpu_object.device;
+                // let scene_bind_group_layouts = &resources.scene_bind_group_layouts;
+                // let device = &resources.wgpu_object.device;
 
                 let mut object_transform = ObjectTransform::default();
 
@@ -475,20 +502,19 @@ impl ApplicationHandler for App {
 
                 let projection_info = ProjectionInfo::default();
 
-                let render_payload = render_payload::create_standard_render_payload(
-                    device,
-                    scene_bind_group_layouts,
+                resources.scene_bind_groups.set_transform(
+                    &resources.wgpu_object.queue,
                     &object_transform,
                     &camera_info,
                     &projection_info,
-                    output_width,
-                    output_height,
+                    output_width as f32 / output_height as f32,
                 );
 
                 match state.render(
                     &resources.scene,
                     &resources.wgpu_object,
-                    &render_payload,
+                    &resources.draw_buffers,
+                    &resources.scene_bind_groups,
                     &resources.material_store,
                     &mut resources.texture_store,
                     &mut egui_frame,

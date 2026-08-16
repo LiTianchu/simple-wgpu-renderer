@@ -6,6 +6,11 @@ pub const UV_FRAG_SHADER_PATH: &str = "./src/shaders/uv.wgsl";
 pub const FLAT_VERT_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
 pub const FLAT_FRAG_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";
 pub const WINDOW_PHYSICAL_SIZE: PhysicalSize<u32> = PhysicalSize::new(1280, 800);
+pub const INITIAL_LIGHT_DIR: glam::Vec3 = glam::Vec3 {
+    x: -1.23,
+    y: -1.5,
+    z: -1.0,
+};
 
 pub const IMAGE_EXPORT_DIR: &str = "./output";
 pub const IMAGE_FILE_NAME: &str = "render";

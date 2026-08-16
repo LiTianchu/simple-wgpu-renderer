@@ -1,4 +1,4 @@
-use crate::ds::uniform::TransformUniform;
+use crate::ds::uniform::{LightUniform, TransformUniform};
 use glam::{Vec3, camera};
 
 pub fn create_mvp_uniform(
@@ -26,4 +26,11 @@ pub fn create_mvp_uniform(
     };
 
     transform
+}
+
+pub fn create_light_uniform(light_direction: Vec3) -> LightUniform {
+    crate::ds::uniform::LightUniform {
+        light_direction: light_direction.normalize().to_array(),
+        _padding: 0.0,
+    }
 }
