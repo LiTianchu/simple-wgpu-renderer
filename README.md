@@ -1,1 +1,1 @@
-# WGPU Tutorial
+# Basic WGPU Renderer
