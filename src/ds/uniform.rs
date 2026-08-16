@@ -10,7 +10,10 @@ pub struct TransformUniform {
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightUniform {
     pub light_direction: [f32; 3],
-    pub _padding: f32, // matches WGSL's implicit vec3 -> 16-byte struct padding
+    pub sun_light_energy: f32,
+    pub ambient_light_contribution: f32,
+    pub _padding: [f32; 3], // matches WGSL's implicit vec3 -> 16-byte struct padding, which
+                            // requires the mem block size to be multiple of the alignment size (16 bytes)
 }
 
 #[repr(C)]

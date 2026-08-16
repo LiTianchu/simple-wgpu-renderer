@@ -63,6 +63,8 @@ impl SceneBindGroupSet {
         render_width: u32,
         render_height: u32,
         initial_light_direction: Vec3,
+        initial_light_energy: f32,
+        initial_ambient_contribution: f32,
         scene_bind_group_layouts: &SceneBindGroupLayoutSet,
     ) -> Self {
         let mvp_uniform_buffer = buffer_factory::create_mvp_uniform_buffer(
@@ -73,8 +75,12 @@ impl SceneBindGroupSet {
             render_width as f32 / render_height as f32,
         );
 
-        let light_uniform_buffer =
-            buffer_factory::create_light_uniform_buffer(&device, initial_light_direction);
+        let light_uniform_buffer = buffer_factory::create_light_uniform_buffer(
+            &device,
+            initial_light_direction,
+            initial_light_energy,
+            initial_ambient_contribution,
+        );
 
         let transform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Transform Bind Group"),
@@ -129,8 +135,18 @@ impl SceneBindGroupSet {
         );
     }
 
-    pub fn set_light_direction(&mut self, queue: &wgpu::Queue, new_light_direction: Vec3) {
-        let new_light_uniform = uniform_factory::create_light_uniform(new_light_direction);
+    pub fn set_light(
+        &mut self,
+        queue: &wgpu::Queue,
+        new_light_direction: Vec3,
+        new_light_energy: f32,
+        new_ambient_contribution: f32,
+    ) {
+        let new_light_uniform = uniform_factory::create_light_uniform(
+            new_light_direction,
+            new_light_energy,
+            new_ambient_contribution,
+        );
         queue.write_buffer(
             &self.light_uniform_buffer,
             0,

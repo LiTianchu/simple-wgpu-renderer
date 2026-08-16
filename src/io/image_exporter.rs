@@ -120,6 +120,8 @@ pub async fn render_image(
         output_width,
         output_height,
         constants::INITIAL_LIGHT_DIR,
+        constants::INITIAL_LIGHT_ENERGY,
+        constants::INITIAL_AMBIENT_CONTRIBUTION,
         scene_bind_group_layouts,
     );
 
@@ -129,12 +131,7 @@ pub async fn render_image(
         &renderer_state.render_pipeline,
         &scene_bind_groups.transform_bind_group,
         &scene_bind_groups.light_bind_group,
-        wgpu::Color {
-            r: 0.0,
-            g: 0.0,
-            b: 0.0,
-            a: 0.0,
-        },
+        constants::IMAGE_EXPORT_CLEAR_COLOR,
         &draw_buffers.vertex_buffer,
         &draw_buffers.index_buffer,
         material_store,

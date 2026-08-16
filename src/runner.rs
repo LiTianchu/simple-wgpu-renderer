@@ -152,12 +152,7 @@ impl AppState {
         let render_pipeline = &self.renderer_state.render_pipeline;
         let surface_state = wgpu_object.surface_state.as_ref().unwrap();
 
-        let clear_color = wgpu::Color {
-            r: 0.0,
-            g: 0.0,
-            b: 0.0,
-            a: 1.0,
-        };
+        let clear_color = constants::WINDOW_MODE_CLEAR_COLOR;
 
         let color_output_surface_texture = match surface_state.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(surface_texture) => surface_texture,
@@ -294,16 +289,33 @@ impl AppState {
                             ui.label("Light Direction:");
                             ui.add(
                                 egui::DragValue::new(&mut self.viewer_state.light_direction.x)
-                                    .prefix("X: "),
+                                    .prefix("X: ")
+                                    .speed(0.1),
                             );
                             ui.add(
                                 egui::DragValue::new(&mut self.viewer_state.light_direction.y)
-                                    .prefix("Y: "),
+                                    .prefix("Y: ")
+                                    .speed(0.1),
                             );
                             ui.add(
                                 egui::DragValue::new(&mut self.viewer_state.light_direction.z)
-                                    .prefix("Z: "),
+                                    .prefix("Z: ")
+                                    .speed(0.1),
                             );
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Light Energy:");
+                            ui.add(egui::Slider::new(
+                                &mut self.viewer_state.light_energy,
+                                0.0..=10.0,
+                            ));
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label("Ambient Contribution:");
+                            ui.add(egui::Slider::new(
+                                &mut self.viewer_state.ambient_contribution,
+                                0.0..=1.0,
+                            ));
                         });
                     });
                 });
@@ -400,8 +412,6 @@ impl App {
         let initial_camera_info = CameraInfo::default();
         let initial_projection_info = ProjectionInfo::default();
 
-        let initial_light_dir = constants::INITIAL_LIGHT_DIR;
-
         let draw_buffers = DrawBufferSet::new(&wgpu_object.device);
 
         let scene_bind_groups = SceneBindGroupSet::new(
@@ -411,7 +421,9 @@ impl App {
             &initial_projection_info,
             window_size.width,
             window_size.height,
-            initial_light_dir,
+            constants::INITIAL_LIGHT_DIR,
+            constants::INITIAL_LIGHT_ENERGY,
+            constants::INITIAL_AMBIENT_CONTRIBUTION,
             &scene_bind_group_layouts,
         );
 
@@ -562,9 +574,11 @@ impl ApplicationHandler for App {
                     output_width as f32 / output_height as f32,
                 );
 
-                resources.scene_bind_groups.set_light_direction(
+                resources.scene_bind_groups.set_light(
                     &resources.wgpu_object.queue,
                     state.viewer_state.light_direction.normalize(),
+                    state.viewer_state.light_energy,
+                    state.viewer_state.ambient_contribution,
                 );
 
                 match state.render(

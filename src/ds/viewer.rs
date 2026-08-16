@@ -16,6 +16,8 @@ pub struct ViewerState {
     pub cam_radius: f32,
     pub cam_fov_deg: f32,
     pub light_direction: glam::Vec3,
+    pub light_energy: f32,
+    pub ambient_contribution: f32,
 }
 
 impl Default for ViewerState {
@@ -28,6 +30,8 @@ impl Default for ViewerState {
             cam_radius: 10.0,
             cam_fov_deg: 45.0,
             light_direction: constants::INITIAL_LIGHT_DIR,
+            light_energy: constants::INITIAL_LIGHT_ENERGY,
+            ambient_contribution: constants::INITIAL_AMBIENT_CONTRIBUTION,
         }
     }
 }

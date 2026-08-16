@@ -28,9 +28,15 @@ pub fn create_mvp_uniform(
     transform
 }
 
-pub fn create_light_uniform(light_direction: Vec3) -> LightUniform {
+pub fn create_light_uniform(
+    light_direction: Vec3,
+    light_energy: f32,
+    ambient_contribution: f32,
+) -> LightUniform {
     crate::ds::uniform::LightUniform {
         light_direction: light_direction.normalize().to_array(),
-        _padding: 0.0,
+        sun_light_energy: light_energy,
+        ambient_light_contribution: ambient_contribution,
+        _padding: [0.0, 0.0, 0.0],
     }
 }

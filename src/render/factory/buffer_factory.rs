@@ -38,10 +38,17 @@ pub fn create_mvp_uniform_buffer(
     device.create_buffer_init(&descriptor)
 }
 
-pub fn create_light_uniform_buffer(device: &wgpu::Device, light_direction: Vec3) -> wgpu::Buffer {
+pub fn create_light_uniform_buffer(
+    device: &wgpu::Device,
+    light_direction: Vec3,
+    light_energy: f32,
+    ambient_contribution: f32,
+) -> wgpu::Buffer {
     let light_uniform = LightUniform {
         light_direction: light_direction.normalize().to_array(),
-        _padding: 0.0,
+        sun_light_energy: light_energy,
+        ambient_light_contribution: ambient_contribution,
+        _padding: [0.0, 0.0, 0.0],
     };
 
     let descriptor = wgpu::util::BufferInitDescriptor {
