@@ -23,9 +23,9 @@ impl Default for ViewerState {
         Self {
             model_rotation_euler_deg: glam::Vec3::new(0.0, 0.0, 0.0),
             model_scale_uniform: 1.0,
-            cam_azimuth_deg: 0.0,
+            cam_azimuth_deg: 90.0, // place camera at positive z
             cam_elevation_deg: 45.0,
-            cam_radius: 5.0,
+            cam_radius: 10.0,
             cam_fov_deg: 45.0,
             light_direction: constants::INITIAL_LIGHT_DIR,
         }
