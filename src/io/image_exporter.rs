@@ -6,7 +6,7 @@ use crate::ds::{
     wgpu_resource::{SceneBindGroupLayoutSet, WgpuObject},
 };
 use crate::render::{factory::render_setup_factory, render_pass};
-use crate::utils::copying;
+use crate::util::copying;
 use std::path::Path;
 
 const BYTES_PER_PIXEL: usize = 4;

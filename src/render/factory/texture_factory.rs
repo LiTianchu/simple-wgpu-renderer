@@ -1,4 +1,4 @@
-use crate::{ds::model::TextureObject, render::factory::bind_group_factory, utils::copying};
+use crate::{ds::model::TextureObject, render::factory::bind_group_factory, util::copying};
 
 pub fn create_texture(
     device: &wgpu::Device,
@@ -43,9 +43,9 @@ pub fn create_texture(
         address_mode_u: wgpu::AddressMode::Repeat,
         address_mode_v: wgpu::AddressMode::Repeat,
         address_mode_w: wgpu::AddressMode::Repeat,
-        mag_filter: wgpu::FilterMode::Linear, // pixel art
-        min_filter: wgpu::FilterMode::Linear, // pixel art
-        mipmap_filter: wgpu::MipmapFilterMode::Linear, // pixel art
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::MipmapFilterMode::Linear,
         ..Default::default()
     });
 
