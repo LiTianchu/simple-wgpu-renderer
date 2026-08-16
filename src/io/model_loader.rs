@@ -149,10 +149,10 @@ pub fn collect_obj_model_data(
             let norm_y = mesh.normals.get(3 * vtx + 1).copied().unwrap_or_default();
             let norm_z = mesh.normals.get(3 * vtx + 2).copied().unwrap_or_default();
 
-            // OBJ files UV can be flipped in the y direction, need to flip it back
+            // NOTE: OBJ files UV can be flipped in the y direction, need to check this
             let vertex = Vertex::new()
                 .with_position(pos_x, pos_y, pos_z)
-                .with_uv(uv_x, 1.0 - uv_y)
+                .with_uv(uv_x, uv_y)
                 .with_normal(norm_x, norm_y, norm_z);
 
             loaded_model_mesh.push_vert(vertex);

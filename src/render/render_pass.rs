@@ -78,7 +78,7 @@ pub fn render_to_output_buffer(
             command_encoder.begin_render_pass(&render_pass_descriptor);
         render_pass.set_pipeline(&pipeline);
 
-        println!("Rendering {} modes", scene.models().len());
+        println!("Rendering {} models", scene.models().len());
 
         let mut index_buffer_offset: wgpu::BufferAddress = 0;
         let mut vertex_buffer_offset: wgpu::BufferAddress = 0;

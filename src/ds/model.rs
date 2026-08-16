@@ -248,6 +248,8 @@ pub struct TextureObject {
 #[derive(Debug, Clone)]
 pub struct DefaultTextures {
     pub diffuse: TextureObject,
+    // pub normal: TextureObject,
+    // pub specular: TextureObject,
 }
 
 impl DefaultTextures {
@@ -256,7 +258,7 @@ impl DefaultTextures {
         queue: &wgpu::Queue,
         texture_sampler_bind_group_layout: &wgpu::BindGroupLayout,
     ) -> Self {
-        let rgba_data_diffuse: Vec<u8> = vec![0xFF; 4];
+        let rgba_data_diffuse: Vec<u8> = vec![0xFF; 4]; // white diffuse texture
 
         let diffuse_tex_obj = texture_factory::create_texture(
             device,
@@ -267,6 +269,20 @@ impl DefaultTextures {
             texture_sampler_bind_group_layout,
             "Diffuse Texture Default",
         );
+
+        let rgba_data_normal: Vec<u8> = vec![0x80, 0x80, 0xFF, 0xFF]; // neutral normal vector in tangent space (0.5, 0.5, 1.0)
+        let rgba_data_specular: Vec<u8> = vec![0x00, 0x00, 0x00, 0xFF]; // black specular map (no specular reflection)
+
+        // let normal_tex_obj = texture_factory::create_texture(
+        //     device,
+        //     queue,
+        //     &rgba_data_normal,
+        //     (1, 1),
+        //     wgpu::TextureFormat::Rgba8Unorm,
+        //     texture_sampler_bind_group_layout,
+        //     "Normal Texture Default",
+        // );
+
         Self {
             diffuse: diffuse_tex_obj,
         }

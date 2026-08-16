@@ -15,7 +15,7 @@ pub const INITIAL_LIGHT_DIR: glam::Vec3 = glam::Vec3 {
 pub const IMAGE_EXPORT_DIR: &str = "./output";
 pub const IMAGE_FILE_NAME: &str = "render";
 pub const IMAGE_FILE_FORMAT: &str = "png";
-pub const DEFAULT_MODEL_PATH: &str = "./assets/obj/mini_forest/character-archer.obj";
+pub const DEFAULT_MODEL_PATH: &str = "./assets/obj/backpack/";
 pub const IMAGE_EXPORT_WIDTH: u32 = 1280;
 pub const IMAGE_EXPORT_HEIGHT: u32 = 800;
 

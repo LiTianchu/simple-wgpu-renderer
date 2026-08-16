@@ -111,16 +111,6 @@ pub async fn render_image(
 
     let projection_info = ProjectionInfo::default();
 
-    // let render_payload = render_payload::create_standard_render_payload(
-    //     &device,
-    //     &scene_bind_group_layouts,
-    //     &object_transform,
-    //     &camera_info,
-    //     &projection_info,
-    //     output_width,
-    //     output_height,
-    // );
-
     let draw_buffers = DrawBufferSet::new(&device);
     let scene_bind_groups = SceneBindGroupSet::new(
         &device,
