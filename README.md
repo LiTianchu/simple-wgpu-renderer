@@ -1,4 +1,4 @@
-# Basic WGPU Renderer
+# Simple WGPU Renderer
 
 Basic Blinn-Phong 3D renderer sample project built with [WGPU](https://github.com/gfx-rs/wgpu), [winit](https://github.com/rust-windowing/winit), and [egui](https://github.com/emilk/egui).  
 
