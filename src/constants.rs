@@ -21,3 +21,7 @@ pub const IMAGE_EXPORT_HEIGHT: u32 = 800;
 
 pub const INITIAL_BUFFER_VERTEX_COUNT: u64 = 1_000_000;
 pub const INITIAL_BUFFER_INDEX_COUNT: u64 = 3_000_000;
+pub const EGUI_PANEL_BG_COLOR: egui::Color32 = egui::Color32::from_rgb(30, 30, 30);
+pub const EGUI_PANEL_OPACITY: f32 = 0.75;
+pub const EGUI_PANEL_PADDING_SAME: i8 = 10;
+pub const EGUI_PANEL_MARGIN_SAME: i8 = 10;

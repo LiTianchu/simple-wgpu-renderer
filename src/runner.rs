@@ -9,6 +9,7 @@ use crate::ds::{
 };
 use crate::io::model_loader;
 use crate::render::{factory::render_setup_factory, render_pass};
+use egui::color_picker::Alpha;
 use glam::Vec3;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -219,48 +220,94 @@ impl AppState {
         let raw_input = self.egui_winit.take_egui_input(&self.window);
 
         let output: egui::FullOutput = self.egui_ctx.run_ui(raw_input, |ui| {
-            ui.heading("Renderer Controls");
-            ui.add(
-                egui::Slider::new(
-                    &mut self.viewer_state.model_rotation_euler_deg.x,
-                    0.0..=360.0,
+            egui::Panel::bottom("renderer_controls_panel")
+                .default_size(200.0)
+                .size_range(150.0..=400.0)
+                .frame(
+                    egui::Frame::default()
+                        .fill(constants::EGUI_PANEL_BG_COLOR)
+                        .inner_margin(egui::Margin::same(constants::EGUI_PANEL_PADDING_SAME))
+                        .outer_margin(egui::Margin::same(constants::EGUI_PANEL_MARGIN_SAME))
+                        .multiply_with_opacity(constants::EGUI_PANEL_OPACITY),
                 )
-                .text("Model Rotation X"),
-            );
-            ui.add(
-                egui::Slider::new(
-                    &mut self.viewer_state.model_rotation_euler_deg.y,
-                    0.0..=360.0,
-                )
-                .text("Model Rotation Y"),
-            );
-            ui.add(
-                egui::Slider::new(
-                    &mut self.viewer_state.model_rotation_euler_deg.z,
-                    0.0..=360.0,
-                )
-                .text("Model Rotation Z"),
-            );
-            ui.add(
-                egui::Slider::new(&mut self.viewer_state.model_scale_uniform, 0.0001..=100.0)
-                    .text("Model Uniform Scale"),
-            );
-            ui.add(
-                egui::Slider::new(&mut self.viewer_state.cam_azimuth_deg, 0.0..=360.0)
-                    .text("Camera Azimuth Angle"),
-            );
-            ui.add(
-                egui::Slider::new(&mut self.viewer_state.cam_elevation_deg, -89.99..=89.99)
-                    .text("Camera Elevation Angle"),
-            );
-            ui.add(
-                egui::Slider::new(&mut self.viewer_state.cam_radius, 0.01..=100.0)
-                    .text("Camera Orbit Radius"),
-            );
-            ui.add(
-                egui::Slider::new(&mut self.viewer_state.cam_fov_deg, 0.01..=120.0)
-                    .text("Camera Field of View (FOV)"),
-            );
+                .show(ui, |ui| {
+                    ui.heading("Renderer Controls");
+                    ui.with_layout(egui::Layout::top_down(egui::Align::TOP), |ui| {
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Label::new("Model Rotation: "));
+                            ui.add(
+                                egui::DragValue::new(
+                                    &mut self.viewer_state.model_rotation_euler_deg.x,
+                                )
+                                .prefix("X: "),
+                            );
+                            ui.add(
+                                egui::DragValue::new(
+                                    &mut self.viewer_state.model_rotation_euler_deg.y,
+                                )
+                                .prefix("Y: "),
+                            );
+                            ui.add(
+                                egui::DragValue::new(
+                                    &mut self.viewer_state.model_rotation_euler_deg.z,
+                                )
+                                .prefix("Z: "),
+                            );
+                        });
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Label::new("Model Scale: "));
+                            ui.add(
+                                egui::DragValue::new(&mut self.viewer_state.model_scale_uniform)
+                                    .speed(0.1),
+                            );
+                        });
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Label::new("Camera Position: "));
+                            ui.vertical(|ui| {
+                                ui.add(
+                                    egui::Slider::new(
+                                        &mut self.viewer_state.cam_elevation_deg,
+                                        -89.99..=89.99,
+                                    )
+                                    .prefix("Elevation: "),
+                                );
+                                ui.add(
+                                    egui::DragValue::new(&mut self.viewer_state.cam_azimuth_deg)
+                                        .prefix("Azimuth: "),
+                                );
+                                ui.add(
+                                    egui::DragValue::new(&mut self.viewer_state.cam_radius)
+                                        .prefix("Radius: "),
+                                );
+                            })
+                        });
+                        ui.horizontal(|ui| {
+                            ui.add(egui::Label::new("Camera FOV: "));
+                            ui.add(
+                                egui::Slider::new(&mut self.viewer_state.cam_fov_deg, 1.0..=120.0)
+                                    .prefix("FOV: "),
+                            );
+                        });
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            ui.label("Light Direction:");
+                            ui.add(
+                                egui::DragValue::new(&mut self.viewer_state.light_direction.x)
+                                    .prefix("X: "),
+                            );
+                            ui.add(
+                                egui::DragValue::new(&mut self.viewer_state.light_direction.y)
+                                    .prefix("Y: "),
+                            );
+                            ui.add(
+                                egui::DragValue::new(&mut self.viewer_state.light_direction.z)
+                                    .prefix("Z: "),
+                            );
+                        });
+                    });
+                });
         });
 
         // destruct output
@@ -508,6 +555,11 @@ impl ApplicationHandler for App {
                     &camera_info,
                     &projection_info,
                     output_width as f32 / output_height as f32,
+                );
+
+                resources.scene_bind_groups.set_light_direction(
+                    &resources.wgpu_object.queue,
+                    state.viewer_state.light_direction.normalize(),
                 );
 
                 match state.render(

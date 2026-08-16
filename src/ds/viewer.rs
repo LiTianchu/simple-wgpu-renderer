@@ -1,5 +1,7 @@
 use std::sync::Arc;
 use winit::window::Window;
+
+use crate::constants;
 pub struct Screen {
     pub window: Arc<Window>,
     pub window_inner_width: u32,
@@ -13,6 +15,7 @@ pub struct ViewerState {
     pub cam_elevation_deg: f32,
     pub cam_radius: f32,
     pub cam_fov_deg: f32,
+    pub light_direction: glam::Vec3,
 }
 
 impl Default for ViewerState {
@@ -24,6 +27,7 @@ impl Default for ViewerState {
             cam_elevation_deg: 45.0,
             cam_radius: 5.0,
             cam_fov_deg: 45.0,
+            light_direction: constants::INITIAL_LIGHT_DIR,
         }
     }
 }
