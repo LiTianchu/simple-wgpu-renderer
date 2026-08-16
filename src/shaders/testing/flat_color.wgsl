@@ -68,7 +68,7 @@ fn fs_main(interp: V2F, @builtin(front_facing) is_front_facing: bool) -> @locati
         normal = -normal;
     }
 
-    let light_intensity = max(dot(normal, normalize(light.wc_light_direction)), 0.0);
+    let light_intensity = max(dot(normal, normalize(-light.wc_light_direction)), 0.0);
 
     // assume base color is packed in big-endian RGBA format
     let r = f32((material.k_diffuse >> 24) & 0xFF) / 255.0;

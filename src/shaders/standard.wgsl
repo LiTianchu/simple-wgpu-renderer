@@ -68,7 +68,7 @@ fn vs_main(vertex: VertexInput) -> V2F {
 
     let view_position = transforms.view * world_position;
     output.view_position = view_position.xyz;
-    output.view_normal = (transforms.view * vec4<f32>(vertex.normal, 0.0)).xyz;
+    output.view_normal = (transforms.view * transforms.model * vec4<f32>(vertex.normal, 0.0)).xyz;
 
     output.clip_position = transforms.proj * view_position;
     output.uv = vertex.uv;
