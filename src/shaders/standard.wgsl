@@ -38,6 +38,12 @@ var s_diffuse: sampler;
 //binding group 3, resource slot 1
 @group(3) @binding(1)
 var t_diffuse: texture_2d<f32>;
+//binding group 3, resource slot 2
+@group(3) @binding(2)
+var t_normal: texture_2d<f32>;
+//binding group 3, resource slot 3
+@group(3) @binding(3)
+var t_specular: texture_2d<f32>;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,

@@ -1,6 +1,6 @@
 use winit::dpi::PhysicalSize;
-pub const TEXTURED_VERT_SHADER_PATH: &str = "./src/shaders/textured.wgsl";
-pub const TEXTURED_FRAG_SHADER_PATH: &str = "./src/shaders/textured.wgsl";
+pub const TEXTURED_VERT_SHADER_PATH: &str = "./src/shaders/standard.wgsl";
+pub const TEXTURED_FRAG_SHADER_PATH: &str = "./src/shaders/standard.wgsl";
 pub const UV_VERT_SHADER_PATH: &str = "./src/shaders/uv.wgsl";
 pub const UV_FRAG_SHADER_PATH: &str = "./src/shaders/uv.wgsl";
 pub const FLAT_VERT_SHADER_PATH: &str = "./src/shaders/flat_color.wgsl";

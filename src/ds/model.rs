@@ -1,5 +1,3 @@
-use anyhow::Context;
-
 use crate::{
     io::file_op,
     render::factory::{bind_group_factory, buffer_factory, texture_factory},

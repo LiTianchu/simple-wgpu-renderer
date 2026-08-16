@@ -1,4 +1,4 @@
-use crate::{ds::model::TextureObject, render::factory::bind_group_factory, util::copying};
+use crate::{ds::model::TextureObject, util::copying};
 
 pub fn create_texture(
     device: &wgpu::Device,
@@ -6,7 +6,6 @@ pub fn create_texture(
     rgba_data: &[u8],
     dimensions: (u32, u32),
     texture_format: wgpu::TextureFormat,
-    // texture_sampler_bind_group_layout: &wgpu::BindGroupLayout,
     texture_label: impl Into<String>,
 ) -> TextureObject {
     let texture_size = wgpu::Extent3d {
@@ -16,7 +15,6 @@ pub fn create_texture(
     };
     let texture_label = texture_label.into();
     let sampler_label = format!("{} Sampler", &texture_label);
-    // let texture_sampler_bind_group_label = format!("{} Texture-Sampler Bind Group", &texture_label);
 
     let texture_descriptor = wgpu::TextureDescriptor {
         size: texture_size,
@@ -48,14 +46,6 @@ pub fn create_texture(
         mipmap_filter: wgpu::MipmapFilterMode::Linear,
         ..Default::default()
     });
-
-    // let texture_sampler_bind_group = bind_group_factory::create_texture_sampler_bind_group(
-    //     &device,
-    //     &texture_view,
-    //     &sampler,
-    //     &texture_sampler_bind_group_layout,
-    //     &texture_sampler_bind_group_label,
-    // );
 
     TextureObject {
         texture: wgpu_texture,

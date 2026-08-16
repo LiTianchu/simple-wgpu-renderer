@@ -370,8 +370,6 @@ fn draw(
             })?;
     }
 
-    // let texture_sampler_bind_group = &texture_obj.texture_sampler_bind_group;
-
     let texture_sampler_bind_group_label = format!(
         "Texture-Sampler Bind Group for {}-{}",
         model.file_path(),
@@ -379,6 +377,9 @@ fn draw(
     );
 
     let texture_sampler_bind_group_layout = texture_store.texture_sampler_bind_group_layout();
+
+    // TODO: Need to factor out this to prevent bind group creation every frame
+    // maybe store it with RenderPipeline since it is tied to the pipeline layout
     let texture_sampler_bind_group = bind_group_factory::create_texture_sampler_bind_group(
         &device,
         &diffuse_texture_obj.texture_view,
