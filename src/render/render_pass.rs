@@ -309,66 +309,71 @@ fn draw(
             mat_key
         ));
     }
-
-    let mat_full_path = mesh
-        .mat_key()
-        .expect(format!("Material key not found for mesh index {} of model at {}, something went wrong when loading materials!", mesh_index, model.model_dir_path()).as_str());
-
-    let mat_bind_group = &mat_obj.material_bind_group;
-
-    let default_mat_label = String::from("default_material");
-
     // fallback texture for diffuse
     let mut diffuse_texture_obj = &texture_store.default_textures().diffuse;
-
-    if let Some(diffuse_texture_sub_path) = mat_obj.material.texture_set.diffuse_map_path.as_ref() {
-        let diffuse_texture_full_path =
-            path_resolver::get_texture_full_path(mat_full_path.clone(), diffuse_texture_sub_path)?;
-
-        diffuse_texture_obj = texture_store
-            .get_texture(diffuse_texture_full_path.clone())
-            .with_context(|| {
-                format!(
-                    "Failed to load texture: {}",
-                    diffuse_texture_full_path.clone()
-                )
-            })?;
-    }
-
     // fallback texture for normal
     let mut normal_texture_obj = &texture_store.default_textures().normal;
-
-    if let Some(normal_texture_sub_path) = mat_obj.material.texture_set.normal_map_path.as_ref() {
-        let normal_texture_full_path =
-            path_resolver::get_texture_full_path(mat_full_path.clone(), normal_texture_sub_path)?;
-
-        normal_texture_obj = texture_store
-            .get_texture(normal_texture_full_path.clone())
-            .with_context(|| {
-                format!(
-                    "Failed to load texture: {}",
-                    normal_texture_full_path.clone()
-                )
-            })?;
-    }
-
     // fallback texture for specular
     let mut specular_texture_obj = &texture_store.default_textures().specular;
 
-    if let Some(specular_texture_sub_path) = mat_obj.material.texture_set.specular_map_path.as_ref()
-    {
-        let specular_texture_full_path =
-            path_resolver::get_texture_full_path(mat_full_path.clone(), specular_texture_sub_path)?;
+    let mat_bind_group = &mat_obj.material_bind_group;
 
-        specular_texture_obj = texture_store
-            .get_texture(specular_texture_full_path.clone())
-            .with_context(|| {
-                format!(
-                    "Failed to load texture: {}",
-                    specular_texture_full_path.clone()
-                )
-            })?;
+    if let Some(mat_full_path) = mesh.mat_key() {
+        if let Some(diffuse_texture_sub_path) =
+            mat_obj.material.texture_set.diffuse_map_path.as_ref()
+        {
+            let diffuse_texture_full_path = path_resolver::get_texture_full_path(
+                mat_full_path.clone(),
+                diffuse_texture_sub_path,
+            )?;
+
+            diffuse_texture_obj = texture_store
+                .get_texture(diffuse_texture_full_path.clone())
+                .with_context(|| {
+                    format!(
+                        "Failed to load texture: {}",
+                        diffuse_texture_full_path.clone()
+                    )
+                })?;
+        }
+
+        if let Some(normal_texture_sub_path) = mat_obj.material.texture_set.normal_map_path.as_ref()
+        {
+            let normal_texture_full_path = path_resolver::get_texture_full_path(
+                mat_full_path.clone(),
+                normal_texture_sub_path,
+            )?;
+
+            normal_texture_obj = texture_store
+                .get_texture(normal_texture_full_path.clone())
+                .with_context(|| {
+                    format!(
+                        "Failed to load texture: {}",
+                        normal_texture_full_path.clone()
+                    )
+                })?;
+        }
+
+        if let Some(specular_texture_sub_path) =
+            mat_obj.material.texture_set.specular_map_path.as_ref()
+        {
+            let specular_texture_full_path = path_resolver::get_texture_full_path(
+                mat_full_path.clone(),
+                specular_texture_sub_path,
+            )?;
+
+            specular_texture_obj = texture_store
+                .get_texture(specular_texture_full_path.clone())
+                .with_context(|| {
+                    format!(
+                        "Failed to load texture: {}",
+                        specular_texture_full_path.clone()
+                    )
+                })?;
+        }
     }
+
+    let default_mat_label = String::from("default_material");
 
     let texture_sampler_bind_group_label = format!(
         "Texture-Sampler Bind Group for {}-{}",
